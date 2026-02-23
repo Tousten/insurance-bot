@@ -23,7 +23,7 @@ KNOWLEDGE_BASE = {
     "greetings": ["oi", "olá", "ola", "e aí", "e ai", "tudo bem", "bom dia", "boa tarde", "boa noite", "hey", "hi", "hello"],
     
     "opening_messages": [
-        "Bom dia! Como posso ajudar? Imagino que o senhor tenha interesse em uma cotação de seguro, correto?
+        "Bom dia! Como posso ajudar? Imagino que o senhor tenha interesse em uma cotação de seguro, correto?.",
         Olá, tudo bem? Para que a gente possa estar providenciando a sua cotação, eu preciso que me envie a foto do documento do seu veículo.",
         "Bom dia! Em que posso ser útil? Presumo que o senhor deseja uma cotação de seguro, não é mesmo?
         Olá, tudo bem? Para que a gente possa estar providenciando a sua cotação, eu preciso que me envie a foto do documento do seu veículo.",
