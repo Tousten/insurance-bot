@@ -539,6 +539,7 @@ HTML_TEMPLATE = """
         }
 
         async function uploadFile(file) {
+        console.log('DEBUG: uploadFile started', file);
             if (!file) return;
 
             const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
