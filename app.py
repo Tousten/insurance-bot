@@ -30,8 +30,8 @@ KNOWLEDGE_BASE = {
         "Olá! Bem-vindo. Como posso auxiliá-lo? Acredito que o senhor busca uma cotação de seguro, correto?
         Olá, tudo bem? Para que a gente possa estar providenciando a sua cotação, eu preciso que me envie a foto do documento do seu veículo."
     ],
-    
-    "menu_options": "\n\nPosso auxiliá-lo com:\n• Cotação de seguro\n• Informações sobre coberturas (RC ou colisão)\n• Documentos necessários\n• Atendimento para sinistros",
+
+    "immediate_document_request": True,
     
     "acknowledgments": ["Perfeito.", "Entendido.", "Muito bem.", "Excelente.", "Perfeitamente."],
     
@@ -223,10 +223,12 @@ def send_quote_summary(session_id):
             conv["in_quote_flow"] = False
             return KNOWLEDGE_BASE["document_request"]
     
-    # Check for greetings
+   # Check for greetings - immediately request document
     if any(greet in msg_lower for greet in KNOWLEDGE_BASE["greetings"]) and conv["step"] == "greeting":
-        conv["step"] = "menu"
-        return random.choice(KNOWLEDGE_BASE["opening_messages"]) + KNOWLEDGE_BASE["menu_options"]
+        conv["step"] = "awaiting_document"
+        conv["awaiting_documents"] = True
+        conv["documents"] = {}
+        return KNOWLEDGE_BASE["opening_messages"][0] + "\n\nClique no botão de anexo 📎 abaixo para enviar."
     
     # Check for quote request
     if any(word in msg_lower for word in ["preço", "preco", "valor", "cotação", "cotacao", "quanto custa", "quote", "orçamento", "orcamento", "quanto fica", "fazer seguro", "cotar", "sim", "pode ser", "quero", "interesse", "correto", "isso mesmo"]):
