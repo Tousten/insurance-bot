@@ -468,8 +468,8 @@ HTML_TEMPLATE = """
             <p>Cotação personalizada | Atendimento 24h</p>
         </div>
         <div class="chat-messages" id="messages">
-            <div class="message bot">Bom dia! Como posso ajudar? Imagino que o senhor tenha interesse em uma cotação de seguro, correto?<br><br>Posso auxiliá-lo com:<br>• Cotação de seguro<br>• Informações sobre coberturas (RC ou colisão)<br>• Documentos necessários<br>• Atendimento para sinistros</div>
-        </div>
+            <div class="message bot">Olá, tudo bem? Para que a gente possa estar providenciando a sua cotação, eu preciso que me envie a foto do documento do seu veículo.<br><br>Clique no botão de anexo 📎 abaixo para enviar.
+            </div>
         <div class="typing" id="typing">
             <span></span><span></span><span></span>
         </div>
