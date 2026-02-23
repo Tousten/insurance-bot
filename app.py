@@ -590,6 +590,8 @@ HTML_TEMPLATE = """
         });
 
         userInput.focus();
+        console.log('DEBUG: All JS loaded');
+        console.log('DEBUG: fileInput:', document.getElementById('fileInput'));
     </script>
 </body>
 </html>
