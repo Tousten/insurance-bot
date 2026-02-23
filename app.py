@@ -1,16 +1,22 @@
-# Car Insurance Lead Bot - Formal/Professional Version
+# Car Insurance Lead Bot - With Document Upload
 # Environment variables: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 from flask import Flask, render_template_string, request, jsonify
 import requests
 import os
 import random
+import base64
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
 # Configuration from environment variables
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '@Toustten')
+
+# Allowed file types and max size
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 # Knowledge base with formal/professional tone
 KNOWLEDGE_BASE = {
@@ -43,7 +49,8 @@ KNOWLEDGE_BASE = {
         "onix": "O Chevrolet Onix é um dos veículos mais vendidos do Brasil. Ótima opção.",
         "default": "Muito bem. Prosseguiremos com as informações."
     },
-        "requirements": "Para a elaboração da apólice, necessitamos apenas da Carteira Nacional de Habilitação (CNH) válida e do documento do veículo (CRLV). O processo é bastante ágil.",
+    
+    "requirements": "Para a elaboração da apólice, necessitamos apenas da Carteira Nacional de Habilitação (CNH) válida e do documento do veículo (CRLV). O processo é bastante ágil.",
     
     "claims": "Em caso de sinistro, o senhor deve entrar em contato através do número 0800 090 090. O atendimento funciona 24 horas por dia, todos os dias da semana.",
     
@@ -58,16 +65,22 @@ KNOWLEDGE_BASE = {
         "driver_age": "Qual é a idade do motorista principal?"
     },
     
-    "closing": "Perfeito. Encaminhei todas as informações para nosso consultor, que entrará em contato em breve com a cotação personalizada. Fico no aguardo caso tenha mais alguma dúvida. À disposição!",
+    "document_request": "Para prosseguirmos com a cotação, poderia enviar os seguintes documentos?\n\n1. CNH (frente e verso)\n2. CRLV do veículo\n3. Foto do número VIN/chassi (opcional, mas ajuda na precisão)\n\nClique no botão de anexo 📎 abaixo para enviar.",
+    
+    "document_received": "Documento recebido com sucesso. Obrigado!",
+    
+    "closing": "Perfeito. Encaminhei todas as informações e documentos para nosso consultor, que entrará em contato em breve com a cotação personalizada. Fico no aguardo caso tenha mais alguma dúvida. À disposição!",
     
     "fallback_responses": [
         "Peço desculpas, não compreendi perfeitamente. Posso auxiliá-lo com informações sobre coberturas, documentos necessários ou iniciar uma cotação. O que seria mais conveniente?",
         "Perdão, não entendi. Trabalhamos com seguros de Responsabilidade Civil e Colisão para todo o território brasileiro. Como posso ser útil?"
     ]
 }
-
 # Conversation state (simple in-memory, resets on restart)
 conversations = {}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def get_acknowledgment():
     """Get a random formal acknowledgment"""
@@ -82,10 +95,10 @@ def get_vehicle_acknowledgment(vehicle_text):
     return KNOWLEDGE_BASE["vehicle_acknowledgments"]["default"]
 
 def send_telegram_alert(title, details):
-    """Send escalation alert to Telegram"""
+    """Send text alert to Telegram"""
     if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == '':
         print(f"[TELEGRAM NOT CONFIGURED] Would send: {title}")
-        return
+        return False
     
     text = f"🚨 <b>{title}</b>\n\n{details}"
     
@@ -97,15 +110,54 @@ def send_telegram_alert(title, details):
     }
     
     try:
-        response = requests.post(url, json=payload, timeout=5)
+        response = requests.post(url, json=payload, timeout=10)
         print(f"Telegram alert sent: {response.status_code}")
+        return response.status_code == 200
     except Exception as e:
         print(f"Failed to send Telegram alert: {e}")
+        return False
+
+def send_telegram_photo(photo_data, caption, filename):
+    """Send photo to Telegram"""
+    if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == '':
+        print(f"[TELEGRAM NOT CONFIGURED] Would send photo: {caption}")
+        return False
+    
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+    
+    try:
+        files = {'photo': (filename, photo_data, 'image/jpeg')}
+        data = {'chat_id': TELEGRAM_CHAT_ID, 'caption': caption}
+        response = requests.post(url, files=files, data=data, timeout=30)
+        print(f"Telegram photo sent: {response.status_code}")
+        return response.status_code == 200
+    except Exception as e:
+        print(f"Failed to send Telegram photo: {e}")
+        return False
+
+def send_telegram_document(doc_data, caption, filename):
+    """Send document to Telegram"""
+    if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == '':
+        print(f"[TELEGRAM NOT CONFIGURED] Would send document: {caption}")
+        return False
+    
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendDocument"
+    
+    try:
+        files = {'document': (filename, doc_data, 'application/pdf')}
+        data = {'chat_id': TELEGRAM_CHAT_ID, 'caption': caption}
+        response = requests.post(url, files=files, data=data, timeout=30)
+        print(f"Telegram document sent: {response.status_code}")
+        return response.status_code == 200
+    except Exception as e:
+        print(f"Failed to send Telegram document: {e}")
+        return False
 
 def send_quote_summary(session_id):
     """Send complete quote info to Telegram"""
     conv = conversations.get(session_id, {})
     quote_data = conv.get('quote_data', {})
+    documents = conv.get('documents', {})
     
     details = f"""
 <b>🚗 NOVA COTAÇÃO DE SEGURO</b>
@@ -115,10 +167,15 @@ def send_quote_summary(session_id):
 <b>Localização:</b> {quote_data.get('location', 'Não informado')}
 <b>Idade do motorista:</b> {quote_data.get('driver_age', 'Não informado')}
 
+<b>Documentos recebidos:</b>
+• CNH: {'✅' if documents.get('cnh') else '❌'}
+• CRLV: {'✅' if documents.get('crlv') else '❌'}
+• VIN: {'✅' if documents.get('vin') else '❌'}
+
 <b>Status:</b> Aguardando cotação ⏳"""
     
     send_telegram_alert("Nova cotação solicitada!", details)
-def get_bot_response(user_message, session_id):
+    def get_bot_response(user_message, session_id):
     """Generate bot response based on user input"""
     msg_lower = user_message.lower().strip()
     
@@ -127,7 +184,9 @@ def get_bot_response(user_message, session_id):
         conversations[session_id] = {
             "step": "greeting", 
             "unknown_count": 0,
-            "quote_data": {}
+            "quote_data": {},
+            "documents": {},
+            "awaiting_documents": False
         }
     
     conv = conversations[session_id]
@@ -145,23 +204,21 @@ def get_bot_response(user_message, session_id):
             # Special acknowledgment for vehicle
             if prev_question == "vehicle":
                 ack = get_vehicle_acknowledgment(user_message)
-                # Continue to next question with acknowledgment
                 if quote_step < len(quote_questions):
                     next_question = quote_questions[quote_step]
                     conv["quote_step"] = quote_step + 1
                     return f"{ack}\n\n{KNOWLEDGE_BASE['quote_questions'][next_question]}"
         
-        # Ask next question or finish
+        # Ask next question or finish questions
         if quote_step < len(quote_questions):
             next_question = quote_questions[quote_step]
             conv["quote_step"] = quote_step + 1
             return KNOWLEDGE_BASE["quote_questions"][next_question]
         else:
-            # All questions answered
+            # All questions answered, now request documents
+            conv["awaiting_documents"] = True
             conv["in_quote_flow"] = False
-            conv["quote_step"] = 0
-            send_quote_summary(session_id)
-            return KNOWLEDGE_BASE["closing"]
+            return KNOWLEDGE_BASE["document_request"]
     
     # Check for greetings
     if any(greet in msg_lower for greet in KNOWLEDGE_BASE["greetings"]) and conv["step"] == "greeting":
@@ -173,6 +230,8 @@ def get_bot_response(user_message, session_id):
         conv["in_quote_flow"] = True
         conv["quote_step"] = 0
         conv["quote_data"] = {}
+        conv["documents"] = {}
+        conv["awaiting_documents"] = False
         return get_acknowledgment() + " " + KNOWLEDGE_BASE["quote_intro"] + "\n\n" + KNOWLEDGE_BASE["quote_questions"]["vehicle"]
     
     # Check for insurance types
@@ -205,8 +264,8 @@ def get_bot_response(user_message, session_id):
         conv["unknown_count"] = 0
         return "Peço desculpas, estou com dificuldades para compreender. Vou encaminhar o senhor para um de nossos consultores, que poderá auxiliá-lo melhor. Um momento, por favor..."
     
-    return KNOWLEDGE_BASE["fallback_responses"][conv["unknown_count"] - 1] 
-# HTML template for the chat interface
+    return KNOWLEDGE_BASE["fallback_responses"][conv["unknown_count"] - 1]
+    # HTML template with file upload support
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -278,14 +337,22 @@ HTML_TEMPLATE = """
             align-self: flex-end;
             border-bottom-right-radius: 6px;
         }
+        .message.file {
+            background: #e8f4f8;
+            color: #1a1a1a;
+            align-self: flex-start;
+            border-bottom-left-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
         .chat-input {
             padding: 18px 20px;
             border-top: 1px solid #e8e8e8;
             display: flex;
             gap: 12px;
             background: #fafafa;
+            align-items: center;
         }
-        .chat-input input {
+        .chat-input input[type="text"] {
             flex: 1;
             padding: 14px 20px;
             border: 2px solid #e0e0e0;
@@ -295,7 +362,7 @@ HTML_TEMPLATE = """
             transition: all 0.3s;
             background: white;
         }
-        .chat-input input:focus {
+        .chat-input input[type="text"]:focus {
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
@@ -317,6 +384,27 @@ HTML_TEMPLATE = """
         .chat-input button:hover {
             transform: scale(1.05);
             box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        .file-btn {
+            width: 50px;
+            height: 50px;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            background: white;
+            color: #667eea;
+            font-size: 1.4rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .file-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        .file-input {
+            display: none;
         }
         .typing {
             display: none;
@@ -350,6 +438,14 @@ HTML_TEMPLATE = """
             color: #999;
             background: #fafafa;
         }
+        .upload-progress {
+            display: none;
+            padding: 10px 20px;
+            background: #f0f2f5;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #667eea;
+        }
         @media (max-width: 480px) {
             body { padding: 0; }
             .chat-container {
@@ -372,7 +468,10 @@ HTML_TEMPLATE = """
         <div class="typing" id="typing">
             <span></span><span></span><span></span>
         </div>
+        <div class="upload-progress" id="uploadProgress">Enviando documento...</div>
         <div class="chat-input">
+            <input type="file" id="fileInput" class="file-input" accept="image/*,.pdf">
+            <button class="file-btn" onclick="document.getElementById('fileInput').click()" title="Enviar documento">📎</button>
             <input type="text" id="userInput" placeholder="Digite sua mensagem..." autocomplete="off">
             <button onclick="sendMessage()">➤</button>
         </div>
@@ -383,11 +482,13 @@ HTML_TEMPLATE = """
         const messagesDiv = document.getElementById('messages');
         const userInput = document.getElementById('userInput');
         const typingDiv = document.getElementById('typing');
+        const fileInput = document.getElementById('fileInput');
+        const uploadProgress = document.getElementById('uploadProgress');
         const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
-        function addMessage(text, isUser) {
+        function addMessage(text, isUser, isFile = false) {
             const div = document.createElement('div');
-            div.className = 'message ' + (isUser ? 'user' : 'bot');
+            div.className = 'message ' + (isUser ? 'user' : isFile ? 'file' : 'bot');
             div.innerHTML = text.replace(/\n/g, '<br>');
             messagesDiv.appendChild(div);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -400,6 +501,14 @@ HTML_TEMPLATE = """
 
         function hideTyping() {
             typingDiv.style.display = 'none';
+        }
+
+        function showUploadProgress() {
+            uploadProgress.style.display = 'block';
+        }
+
+        function hideUploadProgress() {
+            uploadProgress.style.display = 'none';
         }
 
         async function sendMessage() {
@@ -428,6 +537,52 @@ HTML_TEMPLATE = """
             }
         }
 
+        async function uploadFile(file) {
+            if (!file) return;
+
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+            const maxSize = 10 * 1024 * 1024; // 10MB
+
+            if (!allowedTypes.includes(file.type)) {
+                addMessage('❌ Tipo de arquivo não suportado. Envie apenas JPG, PNG ou PDF.', false);
+                return;
+            }
+
+            if (file.size > maxSize) {
+                addMessage('❌ Arquivo muito grande. Tamanho máximo: 10MB.', false);
+                return;
+            }
+
+            showUploadProgress();
+            addMessage('📎 Enviando: ' + file.name, true, true);
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('session_id', sessionId);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                
+                hideUploadProgress();
+                addMessage(data.message, false);
+            } catch (error) {
+                hideUploadProgress();
+                addMessage('❌ Erro ao enviar arquivo. Por favor, tente novamente.', false);
+            }
+        }
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                uploadFile(file);
+            }
+            fileInput.value = '';
+        });
+
         userInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
         });
@@ -441,8 +596,7 @@ HTML_TEMPLATE = """
 @app.route('/')
 def home():
     return render_template_string(HTML_TEMPLATE)
-
-@app.route('/chat', methods=['POST'])
+    @app.route('/chat', methods=['POST'])
 def chat():
     data = request.json
     user_message = data.get('message', '')
@@ -451,6 +605,81 @@ def chat():
     response = get_bot_response(user_message, session_id)
     
     return jsonify({"response": response})
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    """Handle file uploads and send to Telegram"""
+    session_id = request.form.get('session_id', 'default')
+    
+    if session_id not in conversations:
+        conversations[session_id] = {
+            "step": "greeting", 
+            "unknown_count": 0,
+            "quote_data": {},
+            "documents": {},
+            "awaiting_documents": False
+        }
+    
+    conv = conversations[session_id]
+    
+    if 'file' not in request.files:
+        return jsonify({"message": "Nenhum arquivo enviado."})
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({"message": "Nenhum arquivo selecionado."})
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file_ext = filename.rsplit('.', 1)[1].lower()
+        file_data = file.read()
+        
+        # Determine document type from filename or content
+        filename_lower = filename.lower()
+        doc_type = "documento"
+        doc_label = "Documento"
+        
+        if 'cnh' in filename_lower:
+            doc_type = "cnh"
+            doc_label = "CNH"
+        elif 'crlv' in filename_lower or 'licenciamento' in filename_lower:
+            doc_type = "crlv"
+            doc_label = "CRLV"
+        elif 'vin' in filename_lower or 'chassi' in filename_lower:
+            doc_type = "vin"
+            doc_label = "Foto do VIN/Chassi"
+        
+        # Mark document as received
+        conv["documents"][doc_type] = True
+        
+        # Send to Telegram
+        caption = f"📎 {doc_label} recebido\nSessão: {session_id[:20]}..."
+        
+        success = False
+        if file_ext in ['jpg', 'jpeg', 'png']:
+            success = send_telegram_photo(file_data, caption, filename)
+        elif file_ext == 'pdf':
+            success = send_telegram_document(file_data, caption, filename)
+        
+        if success:
+            # Check if all documents received
+            docs = conv.get("documents", {})
+            if docs.get("cnh") and docs.get("crlv"):
+                # All required docs received, send summary
+                send_quote_summary(session_id)
+                return jsonify({"message": f"{KNOWLEDGE_BASE['document_received']}\n\nTodos os documentos necessários foram recebidos. {KNOWLEDGE_BASE['closing']}"})
+            else:
+                missing = []
+                if not docs.get("cnh"): missing.append("CNH")
+                if not docs.get("crlv"): missing.append("CRLV")
+                if not docs.get("vin"): missing.append("foto do VIN (opcional)")
+                
+                return jsonify({"message": f"{KNOWLEDGE_BASE['document_received']}\n\nDocumentos pendentes: {', '.join(missing)}. Pode enviar quando quiser!"})
+        else:
+            return jsonify({"message": "Documento recebido, mas houve um problema ao encaminhar. Nosso consultor será notificado."})
+    
+    return jsonify({"message": "Tipo de arquivo não permitido. Envie apenas JPG, PNG ou PDF."})
 
 @app.route('/health')
 def health():
