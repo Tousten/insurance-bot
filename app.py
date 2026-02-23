@@ -20,60 +20,60 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 # Knowledge base with formal/professional tone
 KNOWLEDGE_BASE = {
-    "greetings": ["oi", "olá", "ola", "e aí", "e ai", "tudo bem", "bom dia", "boa tarde", "boa noite", "hey", "hi", "hello"],
+    "greetings": ["oi", "ola", "e ai", "e ai", "tudo bem", "bom dia", "boa tarde", "boa noite", "hey", "hi", "hello"],
     
     "opening_messages": [
-        "Olá, tudo bem? Para que a gente possa estar providenciando a sua cotação, eu preciso que me envie a foto do documento do seu veículo."
+        "Ola, tudo bem? Para que a gente possa estar providenciando a sua cotacao, eu preciso que me envie a foto do documento do seu veiculo."
     ],
-
-    "immediate_document_request": True,
+    
+    "menu_options": "\n\nPosso auxilia-lo com:\n• Cotacao de seguro\n• Informacoes sobre coberturas (RC ou colisao)\n• Documentos necessarios\n• Atendimento para sinistros",
     
     "acknowledgments": ["Perfeito.", "Entendido.", "Muito bem.", "Excelente.", "Perfeitamente."],
     
     "insurance_types": {
-        "responsabilidade": "A Responsabilidade Civil é a cobertura obrigatória no Brasil. Ela protege o senhor contra danos materiais e corporais causados a terceiros em caso de acidente.",
-        "civil": "A Responsabilidade Civil é a cobertura obrigatória no Brasil. Ela protege o senhor contra danos materiais e corporais causados a terceiros.",
-        "rc": "A Responsabilidade Civil é a cobertura obrigatória no Brasil. Ela protege o senhor contra danos materiais e corporais causados a terceiros.",
-        "colisão": "A cobertura de Colisão protege o veículo do senhor contra danos próprios em caso de acidente, independentemente de quem tenha causado.",
-        "colisao": "A cobertura de Colisão protege o veículo do senhor contra danos próprios em caso de acidente, independentemente de quem tenha causado.",
-        "ambos": "Temos ambas as opções disponíveis: Responsabilidade Civil, que é obrigatória e cobre danos a terceiros, e Colisão, que protege o veículo do senhor. Posso explicar melhor sobre alguma delas?",
-        "os dois": "Temos ambas as opções disponíveis: Responsabilidade Civil, que é obrigatória e cobre danos a terceiros, e Colisão, que protege o veículo do senhor."
+        "responsabilidade": "A Responsabilidade Civil e a cobertura obrigatoria no Brasil. Ela protege o senhor contra danos materiais e corporais causados a terceiros em caso de acidente.",
+        "civil": "A Responsabilidade Civil e a cobertura obrigatoria no Brasil. Ela protege o senhor contra danos materiais e corporais causados a terceiros.",
+        "rc": "A Responsabilidade Civil e a cobertura obrigatoria no Brasil. Ela protege o senhor contra danos materiais e corporais causados a terceiros.",
+        "colisao": "A cobertura de Colisao protege o veiculo do senhor contra danos proprios em caso de acidente, independentemente de quem tenha causado.",
+        "ambos": "Temos ambas as opcoes disponiveis: Responsabilidade Civil, que e obrigatoria e cobre danos a terceiros, e Colisao, que protege o veiculo do senhor. Posso explicar melhor sobre alguma delas?",
+        "os dois": "Temos ambas as opcoes disponiveis: Responsabilidade Civil, que e obrigatoria e cobre danos a terceiros, e Colisao, que protege o veiculo do senhor."
     },
     
     "vehicle_acknowledgments": {
-        "civic": "O Honda Civic é um excelente veículo. Muito bem conservado, geralmente.",
-        "corolla": "O Toyota Corolla é um veículo de ótima confiabilidade. Excelente escolha.",
-        "gol": "O Volkswagen Gol é um carro popular e bastante resistente.",
-        "onix": "O Chevrolet Onix é um dos veículos mais vendidos do Brasil. Ótima opção.",
-        "default": "Muito bem. Prosseguiremos com as informações."
+        "civic": "O Honda Civic e um excelente veiculo. Muito bem conservado, geralmente.",
+        "corolla": "O Toyota Corolla e um veiculo de otima confiabilidade. Excelente escolha.",
+        "gol": "O Volkswagen Gol e um carro popular e bastante resistente.",
+        "onix": "O Chevrolet Onix e um dos veiculos mais vendidos do Brasil. Otima opcao.",
+        "default": "Muito bem. Prosseguiremos com as informacoes."
     },
     
-    "requirements": "Para a elaboração da apólice, necessitamos apenas da Carteira Nacional de Habilitação (CNH) válida e do documento do veículo (CRLV). O processo é bastante ágil.",
+    "requirements": "Para a elaboracao da apolice, necessitamos apenas da Carteira Nacional de Habilitacao (CNH) valida e do documento do veiculo (CRLV). O processo e bastante agil.",
     
-    "claims": "Em caso de sinistro, o senhor deve entrar em contato através do número 0800 090 090. O atendimento funciona 24 horas por dia, todos os dias da semana.",
+    "claims": "Em caso de sinistro, o senhor deve entrar em contato atraves do numero 0800 090 090. O atendimento funciona 24 horas por dia, todos os dias da semana.",
     
-    "coverage_area": "Atuamos em todo o território nacional. O senhor terá cobertura completa em qualquer localidade do Brasil.",
+    "coverage_area": "Atuamos em todo o territorio nacional. O senhor tera cobertura completa em qualquer localidade do Brasil.",
     
-    "quote_intro": "Com prazer. Farei algumas perguntas para elaborarmos uma cotação personalizada e adequada às suas necessidades.",
+    "quote_intro": "Com prazer. Farei algumas perguntas para elaborarmos uma cotacao personalizada e adequada as suas necessidades.",
     
     "quote_questions": {
-        "vehicle": "Qual é o veículo? Por favor, informe marca, modelo e ano.",
-        "coverage": "Qual cobertura o senhor prefere?\n• Responsabilidade Civil (cobre danos a terceiros)\n• Colisão (cobre o seu veículo)\n• Ambas as coberturas",
-        "location": "Em qual cidade e estado o veículo se encontra?",
-        "driver_age": "Qual é a idade do motorista principal?"
+        "vehicle": "Qual e o veiculo? Por favor, informe marca, modelo e ano.",
+        "coverage": "Qual cobertura o senhor prefere?\n• Responsabilidade Civil (cobre danos a terceiros)\n• Colisao (cobre o seu veiculo)\n• Ambas as coberturas",
+        "location": "Em qual cidade e estado o veiculo se encontra?",
+        "driver_age": "Qual e a idade do motorista principal?"
     },
     
-    "document_request": "Para prosseguirmos com a cotação, poderia enviar os seguintes documentos?\n\n1. CNH (frente e verso)\n2. CRLV do veículo\n3. Foto do número VIN/chassi (opcional, mas ajuda na precisão)\n\nClique no botão de anexo 📎 abaixo para enviar.",
+    "document_request": "Para prosseguirmos com a cotacao, poderia enviar os seguintes documentos?\n\n1. CNH (frente e verso)\n2. CRLV do veiculo\n3. Foto do numero VIN/chassi (opcional, mas ajuda na precisao)\n\nClique no botao de anexo abaixo para enviar.",
     
     "document_received": "Documento recebido com sucesso. Obrigado!",
     
-    "closing": "Perfeito. Encaminhei todas as informações e documentos para nosso consultor, que entrará em contato em breve com a cotação personalizada. Fico no aguardo caso tenha mais alguma dúvida. À disposição!",
+    "closing": "Perfeito. Encaminhei todas as informacoes e documentos para nosso consultor, que entrara em contato em breve com a cotacao personalizada. Fico no aguardo caso tenha mais alguma duvida. A disposicao!",
     
     "fallback_responses": [
-        "Peço desculpas, não compreendi perfeitamente. Posso auxiliá-lo com informações sobre coberturas, documentos necessários ou iniciar uma cotação. O que seria mais conveniente?",
-        "Perdão, não entendi. Trabalhamos com seguros de Responsabilidade Civil e Colisão para todo o território brasileiro. Como posso ser útil?"
+        "Peco desculpas, nao compreendi perfeitamente. Posso auxilia-lo com informacoes sobre coberturas, documentos necessarios ou iniciar uma cotacao. O que seria mais conveniente?",
+        "Perdao, nao entendi. Trabalhamos com seguros de Responsabilidade Civil e Colisao para todo o territorio brasileiro. Como posso ser util?"
     ]
 }
+
 # Conversation state (simple in-memory, resets on restart)
 conversations = {}
 
@@ -157,23 +157,23 @@ def send_quote_summary(session_id):
     quote_data = conv.get('quote_data', {})
     documents = conv.get('documents', {})
     
-    details = f"""
-<b>🚗 NOVA COTAÇÃO DE SEGURO</b>
+    details = f"""<b>🚗 NOVA COTACAO DE SEGURO</b>
 
-<b>Veículo:</b> {quote_data.get('vehicle', 'Não informado')}
-<b>Cobertura:</b> {quote_data.get('coverage', 'Não informado')}
-<b>Localização:</b> {quote_data.get('location', 'Não informado')}
-<b>Idade do motorista:</b> {quote_data.get('driver_age', 'Não informado')}
+<b>Veiculo:</b> {quote_data.get('vehicle', 'Nao informado')}
+<b>Cobertura:</b> {quote_data.get('coverage', 'Nao informado')}
+<b>Localizacao:</b> {quote_data.get('location', 'Nao informado')}
+<b>Idade do motorista:</b> {quote_data.get('driver_age', 'Nao informado')}
 
 <b>Documentos recebidos:</b>
 • CNH: {'✅' if documents.get('cnh') else '❌'}
 • CRLV: {'✅' if documents.get('crlv') else '❌'}
 • VIN: {'✅' if documents.get('vin') else '❌'}
 
-<b>Status:</b> Aguardando cotação ⏳"""
+<b>Status:</b> Aguardando cotacao ⏳"""
     
-    send_telegram_alert("Nova cotação solicitada!", details)
-    def get_bot_response(user_message, session_id):
+    send_telegram_alert("Nova cotacao solicitada!", details)
+
+def get_bot_response(user_message, session_id):
     """Generate bot response based on user input"""
     msg_lower = user_message.lower().strip()
     
@@ -218,15 +218,15 @@ def send_quote_summary(session_id):
             conv["in_quote_flow"] = False
             return KNOWLEDGE_BASE["document_request"]
     
-   # Check for greetings - immediately request document
+    # Check for greetings - immediately request document
     if any(greet in msg_lower for greet in KNOWLEDGE_BASE["greetings"]) and conv["step"] == "greeting":
         conv["step"] = "awaiting_document"
         conv["awaiting_documents"] = True
         conv["documents"] = {}
-        return KNOWLEDGE_BASE["opening_messages"][0] + "\n\nClique no botão de anexo 📎 abaixo para enviar."
+        return KNOWLEDGE_BASE["opening_messages"][0] + "\n\nClique no botao de anexo abaixo para enviar."
     
     # Check for quote request
-    if any(word in msg_lower for word in ["preço", "preco", "valor", "cotação", "cotacao", "quanto custa", "quote", "orçamento", "orcamento", "quanto fica", "fazer seguro", "cotar", "sim", "pode ser", "quero", "interesse", "correto", "isso mesmo"]):
+    if any(word in msg_lower for word in ["preco", "valor", "cotacao", "quanto custa", "quote", "orcamento", "quanto fica", "fazer seguro", "cotar", "sim", "pode ser", "quero", "interesse", "correto", "isso mesmo"]):
         conv["in_quote_flow"] = True
         conv["quote_step"] = 0
         conv["quote_data"] = {}
@@ -238,41 +238,42 @@ def send_quote_summary(session_id):
     for key, response in KNOWLEDGE_BASE["insurance_types"].items():
         if key in msg_lower:
             conv["step"] = "details"
-            return response + "\n\nPosso iniciar uma cotação para o senhor?"
+            return response + "\n\nPosso iniciar uma cotacao para o senhor?"
     
     # Check for requirements
-    if any(word in msg_lower for word in ["documento", "documentos", "precisa", "cnh", "requerimento", "requirements", "preciso de", "necessário"]):
-        return KNOWLEDGE_BASE["requirements"] + "\n\nGostaria de prosseguir com uma cotação?"
+    if any(word in msg_lower for word in ["documento", "documentos", "precisa", "cnh", "requerimento", "requirements", "preciso de", "necessario"]):
+        return KNOWLEDGE_BASE["requirements"] + "\n\nGostaria de prosseguir com uma cotacao?"
     
     # Check for claims/sinister
     if any(word in msg_lower for word in ["sinistro", "acidente", "bateu", "bati", "roubaram", "furto", "claim", "0800", "bater", "colidiu"]):
         return KNOWLEDGE_BASE["claims"]
     
     # Check for coverage area
-    if any(word in msg_lower for word in ["onde", "cidade", "estado", "brasil", "cobertura", "área", "area", "atende", "funciona", "localidade"]):
+    if any(word in msg_lower for word in ["onde", "cidade", "estado", "brasil", "cobertura", "area", "area", "atende", "funciona", "localidade"]):
         return KNOWLEDGE_BASE["coverage_area"]
     
     # Check for no/exit responses
-    if msg_lower in ["não", "nao", "no", "obrigado", "agradeço", "tchau", "até logo"]:
-        return "Fico à disposição. Caso precise de mais informações, é só entrar em contato. Tenha um excelente dia!"
+    if msg_lower in ["nao", "nao", "no", "obrigado", "agradeço", "tchau", "ate logo"]:
+        return "Fico a disposicao. Caso precise de mais informacoes, e so entrar em contato. Tenha um excelente dia!"
     
     # Unknown input — escalate after 2 failures
     conv["unknown_count"] += 1
     
     if conv["unknown_count"] >= 2:
-        send_telegram_alert("Cliente não entendido", f"Mensagem: {user_message}")
+        send_telegram_alert("Cliente nao entendido", f"Mensagem: {user_message}")
         conv["unknown_count"] = 0
-        return "Peço desculpas, estou com dificuldades para compreender. Vou encaminhar o senhor para um de nossos consultores, que poderá auxiliá-lo melhor. Um momento, por favor..."
+        return "Peco desculpas, estou com dificuldades para compreender. Vou encaminhar o senhor para um de nossos consultores, que podera auxilia-lo melhor. Um momento, por favor..."
     
     return KNOWLEDGE_BASE["fallback_responses"][conv["unknown_count"] - 1]
-    # HTML template with file upload support
+
+# HTML template with file upload support
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seguro Auto - Cotação</title>
+    <title>Seguro Auto - Cotacao</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -460,11 +461,11 @@ HTML_TEMPLATE = """
     <div class="chat-container">
         <div class="chat-header">
             <h1>🚗 Seguro Auto</h1>
-            <p>Cotação personalizada | Atendimento 24h</p>
+            <p>Cotacao personalizada | Atendimento 24h</p>
         </div>
         <div class="chat-messages" id="messages">
-            <div class="message bot">Olá, tudo bem? Para que a gente possa estar providenciando a sua cotação, eu preciso que me envie a foto do documento do seu veículo.<br><br>Clique no botão de anexo 📎 abaixo para enviar.
-            </div>
+            <div class="message bot">Ola, tudo bem? Para que a gente possa estar providenciando a sua cotacao, eu preciso que me envie a foto do documento do seu veiculo.<br><br>Clique no botao de anexo abaixo para enviar.</div>
+        </div>
         <div class="typing" id="typing">
             <span></span><span></span><span></span>
         </div>
@@ -533,7 +534,7 @@ HTML_TEMPLATE = """
                 }, 600 + Math.random() * 400);
             } catch (error) {
                 hideTyping();
-                addMessage('Peço desculpas, ocorreu um problema. Por favor, tente novamente.', false);
+                addMessage('Peco desculpas, ocorreu um problema. Por favor, tente novamente.', false);
             }
         }
 
@@ -544,12 +545,12 @@ HTML_TEMPLATE = """
             const maxSize = 10 * 1024 * 1024; // 10MB
 
             if (!allowedTypes.includes(file.type)) {
-                addMessage('❌ Tipo de arquivo não suportado. Envie apenas JPG, PNG ou PDF.', false);
+                addMessage('❌ Tipo de arquivo nao suportado. Envie apenas JPG, PNG ou PDF.', false);
                 return;
             }
 
             if (file.size > maxSize) {
-                addMessage('❌ Arquivo muito grande. Tamanho máximo: 10MB.', false);
+                addMessage('❌ Arquivo muito grande. Tamanho maximo: 10MB.', false);
                 return;
             }
 
@@ -596,7 +597,8 @@ HTML_TEMPLATE = """
 @app.route('/')
 def home():
     return render_template_string(HTML_TEMPLATE)
-    @app.route('/chat', methods=['POST'])
+
+@app.route('/chat', methods=['POST'])
 def chat():
     data = request.json
     user_message = data.get('message', '')
@@ -654,7 +656,7 @@ def upload_file():
         conv["documents"][doc_type] = True
         
         # Send to Telegram
-        caption = f"📎 {doc_label} recebido\nSessão: {session_id[:20]}..."
+        caption = f"📎 {doc_label} recebido\nSessao: {session_id[:20]}..."
         
         success = False
         if file_ext in ['jpg', 'jpeg', 'png']:
@@ -668,7 +670,7 @@ def upload_file():
             if docs.get("cnh") and docs.get("crlv"):
                 # All required docs received, send summary
                 send_quote_summary(session_id)
-                return jsonify({"message": f"{KNOWLEDGE_BASE['document_received']}\n\nTodos os documentos necessários foram recebidos. {KNOWLEDGE_BASE['closing']}"})
+                return jsonify({"message": f"{KNOWLEDGE_BASE['document_received']}\n\nTodos os documentos necessarios foram recebidos. {KNOWLEDGE_BASE['closing']}"})
             else:
                 missing = []
                 if not docs.get("cnh"): missing.append("CNH")
@@ -677,9 +679,9 @@ def upload_file():
                 
                 return jsonify({"message": f"{KNOWLEDGE_BASE['document_received']}\n\nDocumentos pendentes: {', '.join(missing)}. Pode enviar quando quiser!"})
         else:
-            return jsonify({"message": "Documento recebido, mas houve um problema ao encaminhar. Nosso consultor será notificado."})
+            return jsonify({"message": "Documento recebido, mas houve um problema ao encaminhar. Nosso consultor sera notificado."})
     
-    return jsonify({"message": "Tipo de arquivo não permitido. Envie apenas JPG, PNG ou PDF."})
+    return jsonify({"message": "Tipo de arquivo nao permitido. Envie apenas JPG, PNG ou PDF."})
 
 @app.route('/health')
 def health():
