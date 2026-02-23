@@ -1,9 +1,10 @@
-# Car Insurance Lead Bot - Deployment Ready
+# Car Insurance Lead Bot - Formal/Professional Version
 # Environment variables: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 from flask import Flask, render_template_string, request, jsonify
 import requests
 import os
+import random
 
 app = Flask(__name__)
 
@@ -11,45 +12,74 @@ app = Flask(__name__)
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '@Toustten')
 
-# Knowledge base
-KNOWLEDGE = {
+# Knowledge base with formal/professional tone
+KNOWLEDGE_BASE = {
     "greetings": ["oi", "olá", "ola", "e aí", "e ai", "tudo bem", "bom dia", "boa tarde", "boa noite", "hey", "hi", "hello"],
     
+    "opening_messages": [
+        "Bom dia! Como posso ajudar? Imagino que o senhor tenha interesse em uma cotação de seguro, correto?",
+        "Bom dia! Em que posso ser útil? Presumo que o senhor deseja uma cotação de seguro, não é mesmo?",
+        "Olá! Bem-vindo. Como posso auxiliá-lo? Acredito que o senhor busca uma cotação de seguro, correto?"
+    ],
+    
+    "menu_options": "\n\nPosso auxiliá-lo com:\n• Cotação de seguro\n• Informações sobre coberturas (RC ou colisão)\n• Documentos necessários\n• Atendimento para sinistros",
+    
+    "acknowledgments": ["Perfeito.", "Entendido.", "Muito bem.", "Excelente.", "Perfeitamente."],
+    
     "insurance_types": {
-        "responsabilidade": "Responsabilidade Civil (RC) cobre danos a terceiros. É obrigatória no Brasil. Cobre danos materiais e corporais que você causar a outras pessoas.",
-        "civil": "Responsabilidade Civil (RC) cobre danos a terceiros. É obrigatória no Brasil.",
-        "rc": "Responsabilidade Civil (RC) cobre danos a terceiros. É obrigatória no Brasil.",
-        "colisão": "Seguro de Colisão cobre danos ao seu próprio veículo em caso de acidente, independente de quem tenha causado.",
-        "colisao": "Seguro de Colisão cobre danos ao seu próprio veículo em caso de acidente, independente de quem tenha causado.",
-        "ambos": "Temos os dois tipos: Responsabilidade Civil (obrigatória, cobre terceiros) e Colisão (cobre seu carro). Quer saber mais sobre algum?",
-        "os dois": "Temos os dois tipos: Responsabilidade Civil (obrigatória, cobre terceiros) e Colisão (cobre seu carro)."
+        "responsabilidade": "A Responsabilidade Civil é a cobertura obrigatória no Brasil. Ela protege o senhor contra danos materiais e corporais causados a terceiros em caso de acidente.",
+        "civil": "A Responsabilidade Civil é a cobertura obrigatória no Brasil. Ela protege o senhor contra danos materiais e corporais causados a terceiros.",
+        "rc": "A Responsabilidade Civil é a cobertura obrigatória no Brasil. Ela protege o senhor contra danos materiais e corporais causados a terceiros.",
+        "colisão": "A cobertura de Colisão protege o veículo do senhor contra danos próprios em caso de acidente, independentemente de quem tenha causado.",
+        "colisao": "A cobertura de Colisão protege o veículo do senhor contra danos próprios em caso de acidente, independentemente de quem tenha causado.",
+        "ambos": "Temos ambas as opções disponíveis: Responsabilidade Civil, que é obrigatória e cobre danos a terceiros, e Colisão, que protege o veículo do senhor. Posso explicar melhor sobre alguma delas?",
+        "os dois": "Temos ambas as opções disponíveis: Responsabilidade Civil, que é obrigatória e cobre danos a terceiros, e Colisão, que protege o veículo do senhor."
     },
     
-    "requirements": "Para fazer o seguro precisamos de: CNH válida e documento do veículo (CRLV). O processo é rápido!",
+    "vehicle_acknowledgments": {
+        "civic": "O Honda Civic é um excelente veículo. Muito bem conservado, geralmente.",
+        "corolla": "O Toyota Corolla é um veículo de ótima confiabilidade. Excelente escolha.",
+        "gol": "O Volkswagen Gol é um carro popular e bastante resistente.",
+        "onix": "O Chevrolet Onix é um dos veículos mais vendidos do Brasil. Ótima opção.",
+        "default": "Muito bem. Prosseguiremos com as informações."
+    },
+        "requirements": "Para a elaboração da apólice, necessitamos apenas da Carteira Nacional de Habilitação (CNH) válida e do documento do veículo (CRLV). O processo é bastante ágil.",
     
-    "claims": "Para acionar o sinistro, ligue para 0800 090 090. Atendimento 24h.",
+    "claims": "Em caso de sinistro, o senhor deve entrar em contato através do número 0800 090 090. O atendimento funciona 24 horas por dia, todos os dias da semana.",
     
-    "coverage_area": "Atendemos em todo o território brasileiro! 🚗🇧🇷",
+    "coverage_area": "Atuamos em todo o território nacional. O senhor terá cobertura completa em qualquer localidade do Brasil.",
     
-    "pricing": "Vou te fazer algumas perguntas rápidas para preparar sua cotação personalizada.",
+    "quote_intro": "Com prazer. Farei algumas perguntas para elaborarmos uma cotação personalizada e adequada às suas necessidades.",
     
     "quote_questions": {
-        "vehicle": "Qual o veículo? (marca, modelo e ano)",
-        "coverage": "Qual cobertura deseja?\n• Responsabilidade Civil (cobre terceiros)\n• Colisão (cobre seu carro)\n• Os dois",
-        "location": "Em qual cidade/estado fica o veículo?",
-        "driver_age": "Qual a idade do motorista principal?"
+        "vehicle": "Qual é o veículo? Por favor, informe marca, modelo e ano.",
+        "coverage": "Qual cobertura o senhor prefere?\n• Responsabilidade Civil (cobre danos a terceiros)\n• Colisão (cobre o seu veículo)\n• Ambas as coberturas",
+        "location": "Em qual cidade e estado o veículo se encontra?",
+        "driver_age": "Qual é a idade do motorista principal?"
     },
     
-    "opening_message": "Tudo bem? 😊\n\nEu imagino que você veio para cotação de seguro. Se for isso, posso te fazer umas perguntas para cotação?\n\nOu se preferir, posso te ajudar com:\n• Tipos de seguro (RC ou colisão)\n• Documentos necessários\n• Sinistros",
+    "closing": "Perfeito. Encaminhei todas as informações para nosso consultor, que entrará em contato em breve com a cotação personalizada. Fico no aguardo caso tenha mais alguma dúvida. À disposição!",
     
     "fallback_responses": [
-        "Hmm, não entendi direito. Posso te ajudar com: tipos de seguro (RC ou colisão), documentos necessários, ou cotação. O que precisa?",
-        "Desculpe, não captei. Trabalhamos com seguro de Responsabilidade Civil e Colisão para todo o Brasil. Como posso ajudar?"
+        "Peço desculpas, não compreendi perfeitamente. Posso auxiliá-lo com informações sobre coberturas, documentos necessários ou iniciar uma cotação. O que seria mais conveniente?",
+        "Perdão, não entendi. Trabalhamos com seguros de Responsabilidade Civil e Colisão para todo o território brasileiro. Como posso ser útil?"
     ]
 }
 
 # Conversation state (simple in-memory, resets on restart)
 conversations = {}
+
+def get_acknowledgment():
+    """Get a random formal acknowledgment"""
+    return random.choice(KNOWLEDGE_BASE["acknowledgments"])
+
+def get_vehicle_acknowledgment(vehicle_text):
+    """Get acknowledgment based on vehicle mentioned"""
+    vehicle_lower = vehicle_text.lower()
+    for key, response in KNOWLEDGE_BASE["vehicle_acknowledgments"].items():
+        if key in vehicle_lower:
+            return response
+    return KNOWLEDGE_BASE["vehicle_acknowledgments"]["default"]
 
 def send_telegram_alert(title, details):
     """Send escalation alert to Telegram"""
@@ -111,6 +141,15 @@ def get_bot_response(user_message, session_id):
         if quote_step > 0 and quote_step <= len(quote_questions):
             prev_question = quote_questions[quote_step - 1]
             conv["quote_data"][prev_question] = user_message
+            
+            # Special acknowledgment for vehicle
+            if prev_question == "vehicle":
+                ack = get_vehicle_acknowledgment(user_message)
+                # Continue to next question with acknowledgment
+                if quote_step < len(quote_questions):
+                    next_question = quote_questions[quote_step]
+                    conv["quote_step"] = quote_step + 1
+                    return f"{ack}\n\n{KNOWLEDGE_BASE['quote_questions'][next_question]}"
         
         # Ask next question or finish
         if quote_step < len(quote_questions):
@@ -122,41 +161,41 @@ def get_bot_response(user_message, session_id):
             conv["in_quote_flow"] = False
             conv["quote_step"] = 0
             send_quote_summary(session_id)
-            return "Perfeito! Enviei todas as informações para nosso consultor. Ele vai preparar sua cotação e entrar em contato em breve! 🚗✅\n\nAlguma outra dúvida?"
+            return KNOWLEDGE_BASE["closing"]
     
-    # Check for greetings or first message
+    # Check for greetings
     if any(greet in msg_lower for greet in KNOWLEDGE_BASE["greetings"]) and conv["step"] == "greeting":
         conv["step"] = "menu"
-        return KNOWLEDGE_BASE["opening_message"]
+        return random.choice(KNOWLEDGE_BASE["opening_messages"]) + KNOWLEDGE_BASE["menu_options"]
     
     # Check for quote request
-    if any(word in msg_lower for word in ["preço", "preco", "valor", "cotação", "cotacao", "quanto custa", "quote", "orçamento", "orcamento", "quanto fica", "fazer seguro", "cotar", "sim", "pode ser", "quero"]):
+    if any(word in msg_lower for word in ["preço", "preco", "valor", "cotação", "cotacao", "quanto custa", "quote", "orçamento", "orcamento", "quanto fica", "fazer seguro", "cotar", "sim", "pode ser", "quero", "interesse", "correto", "isso mesmo"]):
         conv["in_quote_flow"] = True
         conv["quote_step"] = 0
         conv["quote_data"] = {}
-        return KNOWLEDGE_BASE["pricing"] + "\n\n" + KNOWLEDGE_BASE["quote_questions"]["vehicle"]
+        return get_acknowledgment() + " " + KNOWLEDGE_BASE["quote_intro"] + "\n\n" + KNOWLEDGE_BASE["quote_questions"]["vehicle"]
     
     # Check for insurance types
     for key, response in KNOWLEDGE_BASE["insurance_types"].items():
         if key in msg_lower:
             conv["step"] = "details"
-            return response + "\n\nQuer fazer uma cotação?"
+            return response + "\n\nPosso iniciar uma cotação para o senhor?"
     
     # Check for requirements
-    if any(word in msg_lower for word in ["documento", "documentos", "precisa", "cnh", "requerimento", "requirements", "preciso de"]):
-        return KNOWLEDGE_BASE["requirements"] + "\n\nQuer fazer uma cotação?"
+    if any(word in msg_lower for word in ["documento", "documentos", "precisa", "cnh", "requerimento", "requirements", "preciso de", "necessário"]):
+        return KNOWLEDGE_BASE["requirements"] + "\n\nGostaria de prosseguir com uma cotação?"
     
     # Check for claims/sinister
-    if any(word in msg_lower for word in ["sinistro", "acidente", "bateu", "bati", "roubaram", "furto", "claim", "0800", "bater"]):
+    if any(word in msg_lower for word in ["sinistro", "acidente", "bateu", "bati", "roubaram", "furto", "claim", "0800", "bater", "colidiu"]):
         return KNOWLEDGE_BASE["claims"]
     
     # Check for coverage area
-    if any(word in msg_lower for word in ["onde", "cidade", "estado", "brasil", "cobertura", "área", "area", "atende", "funciona"]):
+    if any(word in msg_lower for word in ["onde", "cidade", "estado", "brasil", "cobertura", "área", "area", "atende", "funciona", "localidade"]):
         return KNOWLEDGE_BASE["coverage_area"]
     
     # Check for no/exit responses
-    if msg_lower in ["não", "nao", "no", "obrigado", "valeu", "flw", "tchau"]:
-        return "Sem problemas! Se precisar de algo é só chamar. 👍"
+    if msg_lower in ["não", "nao", "no", "obrigado", "agradeço", "tchau", "até logo"]:
+        return "Fico à disposição. Caso precise de mais informações, é só entrar em contato. Tenha um excelente dia!"
     
     # Unknown input — escalate after 2 failures
     conv["unknown_count"] += 1
@@ -164,10 +203,10 @@ def get_bot_response(user_message, session_id):
     if conv["unknown_count"] >= 2:
         send_telegram_alert("Cliente não entendido", f"Mensagem: {user_message}")
         conv["unknown_count"] = 0
-        return "Desculpe, não estou conseguindo entender direito. Vou chamar um consultor para te ajudar! Aguarde um momento... 🔄"
+        return "Peço desculpas, estou com dificuldades para compreender. Vou encaminhar o senhor para um de nossos consultores, que poderá auxiliá-lo melhor. Um momento, por favor..."
     
-    return KNOWLEDGE_BASE["fallback_responses"][conv["unknown_count"] - 1]
-    # HTML template for the chat interface
+    return KNOWLEDGE_BASE["fallback_responses"][conv["unknown_count"] - 1] 
+# HTML template for the chat interface
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -325,10 +364,10 @@ HTML_TEMPLATE = """
     <div class="chat-container">
         <div class="chat-header">
             <h1>🚗 Seguro Auto</h1>
-            <p>Cotação rápida | Atendimento 24h | Todo Brasil</p>
+            <p>Cotação personalizada | Atendimento 24h</p>
         </div>
         <div class="chat-messages" id="messages">
-            <div class="message bot">Tudo bem? 😊<br><br>Eu imagino que você veio para cotação de seguro. Se for isso, posso te fazer umas perguntas para cotação?<br><br>Ou se preferir, posso te ajudar com:<br>• Tipos de seguro (RC ou colisão)<br>• Documentos necessários<br>• Sinistros</div>
+            <div class="message bot">Bom dia! Como posso ajudar? Imagino que o senhor tenha interesse em uma cotação de seguro, correto?<br><br>Posso auxiliá-lo com:<br>• Cotação de seguro<br>• Informações sobre coberturas (RC ou colisão)<br>• Documentos necessários<br>• Atendimento para sinistros</div>
         </div>
         <div class="typing" id="typing">
             <span></span><span></span><span></span>
@@ -337,7 +376,7 @@ HTML_TEMPLATE = """
             <input type="text" id="userInput" placeholder="Digite sua mensagem..." autocomplete="off">
             <button onclick="sendMessage()">➤</button>
         </div>
-        <div class="footer">Protegido por criptografia 🔒</div>
+        <div class="footer">Atendimento seguro e profissional 🔒</div>
     </div>
 
     <script>
@@ -385,7 +424,7 @@ HTML_TEMPLATE = """
                 }, 600 + Math.random() * 400);
             } catch (error) {
                 hideTyping();
-                addMessage('Desculpe, tive um problema. Tente novamente!', false);
+                addMessage('Peço desculpas, ocorreu um problema. Por favor, tente novamente.', false);
             }
         }
 
