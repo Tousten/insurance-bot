@@ -490,7 +490,7 @@ HTML_TEMPLATE = """
         function addMessage(text, isUser, isFile = false) {
             const div = document.createElement('div');
             div.className = 'message ' + (isUser ? 'user' : isFile ? 'file' : 'bot');
-            div.innerHTML = text.replace(/\n/g, '<br>');
+            div.innerHTML = text.replace(/\\n/g, '<br>');
             messagesDiv.appendChild(div);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
