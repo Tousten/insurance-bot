@@ -12,7 +12,7 @@ TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '@Toustten')
 
 # Knowledge base
-KNOWLEDGE_BASE = {
+KNOWLEDGE {
     "greetings": ["oi", "olá", "ola", "e aí", "e ai", "tudo bem", "bom dia", "boa tarde", "boa noite", "hey", "hi", "hello"],
     
     "insurance_types": {
@@ -21,7 +21,7 @@ KNOWLEDGE_BASE = {
         "rc": "Responsabilidade Civil (RC) cobre danos a terceiros. É obrigatória no Brasil.",
         "colisão": "Seguro de Colisão cobre danos ao seu próprio veículo em caso de acidente, independente de quem tenha causado.",
         "colisao": "Seguro de Colisão cobre danos ao seu próprio veículo em caso de acidente, independente de quem tenha causado.",
-        "ambos": "Temos os dois tipos: Responsabilidade Civil (obrigatória, cobre terceiros e Colisão (cobre seu carro). Quer saber mais sobre algum?",
+        "ambos": "Temos os dois tipos: Responsabilidade Civil (obrigatória, cobre terceiros) e Colisão (cobre seu carro). Quer saber mais sobre algum?",
         "os dois": "Temos os dois tipos: Responsabilidade Civil (obrigatória, cobre terceiros) e Colisão (cobre seu carro)."
     },
     
@@ -31,9 +31,16 @@ KNOWLEDGE_BASE = {
     
     "coverage_area": "Atendemos em todo o território brasileiro! 🚗🇧🇷",
     
-    "pricing": "O valor do seguro varia conforme o veículo, perfil do motorista e cobertura escolhida. Posso encaminhar você para um consultor fazer uma cotação personalizada?",
+    "pricing": "Vou te fazer algumas perguntas rápidas para preparar sua cotação personalizada.",
     
-    "quote": "Vou te encaminhar para um consultor fazer uma cotação personalizada. Um momento!",
+    "quote_questions": {
+        "vehicle": "Qual o veículo? (marca, modelo e ano)",
+        "coverage": "Qual cobertura deseja?\n• Responsabilidade Civil (cobre terceiros)\n• Colisão (cobre seu carro)\n• Os dois",
+        "location": "Em qual cidade/estado fica o veículo?",
+        "driver_age": "Qual a idade do motorista principal?"
+    },
+    
+    "opening_message": "Tudo bem? 😊\n\nEu imagino que você veio para cotação de seguro. Se for isso, posso te fazer umas perguntas para cotação?\n\nOu se preferir, posso te ajudar com:\n• Tipos de seguro (RC ou colisão)\n• Documentos necessários\n• Sinistros",
     
     "fallback_responses": [
         "Hmm, não entendi direito. Posso te ajudar com: tipos de seguro (RC ou colisão), documentos necessários, ou cotação. O que precisa?",
@@ -44,15 +51,13 @@ KNOWLEDGE_BASE = {
 # Conversation state (simple in-memory, resets on restart)
 conversations = {}
 
-def send_telegram_alert(message, user_message):
+def send_telegram_alert(title, details):
     """Send escalation alert to Telegram"""
     if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == '':
-        print(f"[TELEGRAM NOT CONFIGURED] Would send: {message}")
+        print(f"[TELEGRAM NOT CONFIGURED] Would send: {title}")
         return
     
-    text = f"🚨 <b>Novo lead precisa de ajuda!</b>\n\n"
-    text += f"<b>Mensagem do cliente:</b> {user_message}\n\n"
-    text += f"<b>Contexto:</b> {message}"
+    text = f"🚨 <b>{title}</b>\n\n{details}"
     
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
@@ -66,26 +71,76 @@ def send_telegram_alert(message, user_message):
         print(f"Telegram alert sent: {response.status_code}")
     except Exception as e:
         print(f"Failed to send Telegram alert: {e}")
+
+def send_quote_summary(session_id):
+    """Send complete quote info to Telegram"""
+    conv = conversations.get(session_id, {})
+    quote_data = conv.get('quote_data', {})
+    
+    details = f"""
+<b>🚗 NOVA COTAÇÃO DE SEGURO</b>
+
+<b>Veículo:</b> {quote_data.get('vehicle', 'Não informado')}
+<b>Cobertura:</b> {quote_data.get('coverage', 'Não informado')}
+<b>Localização:</b> {quote_data.get('location', 'Não informado')}
+<b>Idade do motorista:</b> {quote_data.get('driver_age', 'Não informado')}
+
+<b>Status:</b> Aguardando cotação ⏳"""
+    
+    send_telegram_alert("Nova cotação solicitada!", details)
 def get_bot_response(user_message, session_id):
     """Generate bot response based on user input"""
     msg_lower = user_message.lower().strip()
     
     # Initialize conversation if new
     if session_id not in conversations:
-        conversations[session_id] = {"step": "greeting", "unknown_count": 0}
+        conversations[session_id] = {
+            "step": "greeting", 
+            "unknown_count": 0,
+            "quote_data": {}
+        }
     
     conv = conversations[session_id]
     
-    # Check for greetings
+    # Handle quote flow
+    if conv.get("in_quote_flow"):
+        quote_step = conv.get("quote_step", 0)
+        quote_questions = ["vehicle", "coverage", "location", "driver_age"]
+        
+        # Save previous answer
+        if quote_step > 0 and quote_step <= len(quote_questions):
+            prev_question = quote_questions[quote_step - 1]
+            conv["quote_data"][prev_question] = user_message
+        
+        # Ask next question or finish
+        if quote_step < len(quote_questions):
+            next_question = quote_questions[quote_step]
+            conv["quote_step"] = quote_step + 1
+            return KNOWLEDGE_BASE["quote_questions"][next_question]
+        else:
+            # All questions answered
+            conv["in_quote_flow"] = False
+            conv["quote_step"] = 0
+            send_quote_summary(session_id)
+            return "Perfeito! Enviei todas as informações para nosso consultor. Ele vai preparar sua cotação e entrar em contato em breve! 🚗✅\n\nAlguma outra dúvida?"
+    
+    # Check for greetings or first message
     if any(greet in msg_lower for greet in KNOWLEDGE_BASE["greetings"]) and conv["step"] == "greeting":
         conv["step"] = "menu"
-        return "E aí? Tudo bem? Que que manda? 😊\n\nPosso te ajudar com:\n• Tipos de seguro (RC ou colisão)\n• Documentos necessários\n• Cotação\n• Sinistros"
+        return KNOWLEDGE_BASE["opening_message"]
+    
+    # Check for quote request
+    if any(word in msg_lower for word in ["preço", "preco", "valor", "cotação", "cotacao", "quanto custa", "quote", "orçamento", "orcamento", "quanto fica", "fazer seguro", "cotar", "sim", "pode ser", "quero"]):
+        conv["in_quote_flow"] = True
+        conv["quote_step"] = 0
+        conv["quote_data"] = {}
+        return KNOWLEDGE_BASE["pricing"] + "\n\n" + KNOWLEDGE_BASE["quote_questions"]["vehicle"]
     
     # Check for insurance types
     for key, response in KNOWLEDGE_BASE["insurance_types"].items():
         if key in msg_lower:
             conv["step"] = "details"
-            return response + "\n\nQuer saber sobre documentos necessários ou fazer uma cotação?"
+            return response + "\n\nQuer fazer uma cotação?"
     
     # Check for requirements
     if any(word in msg_lower for word in ["documento", "documentos", "precisa", "cnh", "requerimento", "requirements", "preciso de"]):
@@ -99,17 +154,7 @@ def get_bot_response(user_message, session_id):
     if any(word in msg_lower for word in ["onde", "cidade", "estado", "brasil", "cobertura", "área", "area", "atende", "funciona"]):
         return KNOWLEDGE_BASE["coverage_area"]
     
-    # Check for pricing/quote
-    if any(word in msg_lower for word in ["preço", "preco", "valor", "cotação", "cotacao", "quanto custa", "quote", "orçamento", "orcamento", "quanto fica", "fazer seguro"]):
-        send_telegram_alert("Cliente solicitou cotação", user_message)
-        return KNOWLEDGE_BASE["quote"]
-    
-    # Check for yes/no responses
-    if msg_lower in ["sim", "yes", "quero", "pode ser", "vamos", "beleza", "blz", "ok"]:
-        if conv["step"] == "menu":
-            return "Show! Qual tipo de seguro te interessa?\n• Responsabilidade Civil (cobre terceiros)\n• Colisão (cobre seu carro)\n• Os dois"
-        return "Perfeito! Vou te encaminhar para um consultor."
-    
+    # Check for no/exit responses
     if msg_lower in ["não", "nao", "no", "obrigado", "valeu", "flw", "tchau"]:
         return "Sem problemas! Se precisar de algo é só chamar. 👍"
     
@@ -117,7 +162,7 @@ def get_bot_response(user_message, session_id):
     conv["unknown_count"] += 1
     
     if conv["unknown_count"] >= 2:
-        send_telegram_alert(f"Cliente não entendido após {conv['unknown_count']} tentativas", user_message)
+        send_telegram_alert("Cliente não entendido", f"Mensagem: {user_message}")
         conv["unknown_count"] = 0
         return "Desculpe, não estou conseguindo entender direito. Vou chamar um consultor para te ajudar! Aguarde um momento... 🔄"
     
@@ -283,7 +328,7 @@ HTML_TEMPLATE = """
             <p>Cotação rápida | Atendimento 24h | Todo Brasil</p>
         </div>
         <div class="chat-messages" id="messages">
-            <div class="message bot">E aí? Tudo bem? Que que manda? 😊</div>
+            <div class="message bot">Tudo bem? 😊<br><br>Eu imagino que você veio para cotação de seguro. Se for isso, posso te fazer umas perguntas para cotação?<br><br>Ou se preferir, posso te ajudar com:<br>• Tipos de seguro (RC ou colisão)<br>• Documentos necessários<br>• Sinistros</div>
         </div>
         <div class="typing" id="typing">
             <span></span><span></span><span></span>
@@ -304,7 +349,7 @@ HTML_TEMPLATE = """
         function addMessage(text, isUser) {
             const div = document.createElement('div');
             div.className = 'message ' + (isUser ? 'user' : 'bot');
-            div.innerHTML = text.replace(/\\n/g, '<br>');
+            div.innerHTML = text.replace(/\n/g, '<br>');
             messagesDiv.appendChild(div);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
