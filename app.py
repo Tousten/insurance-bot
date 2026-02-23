@@ -96,7 +96,7 @@ def get_bot_response(user_message, session_id):
         return KNOWLEDGE_BASE["claims"]
     
     # Check for coverage area
-    if any(word in msg_lower for word in ["onde", "cidade", "estado", "brasil "cobertura", "área", "area", "atende", "funciona"]):
+    if any(word in msg_lower for word in ["onde", "cidade", "estado", "brasil", "cobertura", "área", "area", "atende", "funciona"]):
         return KNOWLEDGE_BASE["coverage_area"]
     
     # Check for pricing/quote
