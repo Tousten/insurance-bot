@@ -102,7 +102,7 @@ HTML_TEMPLATE = """
     <style>
         body { font-family: sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; margin: 0; }
         .chat-container { width: 100%; max-width: 420px; height: 85vh; background: white; border-radius: 24px; box-shadow: 0 25px 80px rgba(0,0,0,0.4); display: flex; flex-direction: column; overflow: hidden; }
-        .chat-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 24px; text-align: center; }
+        .chat-header { background: linear-gradient(135deg, rgba(102, 126, 234, 0.95) 0%, rgba(118, 75, 162, 0.95) 100%), url('https://metisbrasil.com.br/wp-content/uploads/2025/06/metis-logo.png') center/120px no-repeat; color: white; padding: 24px; text-align: center; min-height: 100px; display: flex; flex-direction: column; justify-content: center; }
         .chat-messages { flex: 1; overflow-y: auto; padding: 20px; }
         .message { max-width: 85%; padding: 14px 18px; border-radius: 20px; margin-bottom: 10px; font-size: 0.95rem; line-height: 1.4; }
         .message.bot { background: #f0f2f5; color: #1a1a1a; margin-right: auto; }
