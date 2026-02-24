@@ -1,4 +1,4 @@
-# Car Insurance Lead Bot - Gustavo Melo - FINAL
+# Car Insurance Lead Bot - Gustavo Melo - WITH PARTIAL UPDATES
 from flask import Flask, render_template_string, request, jsonify
 import requests
 import os
@@ -35,25 +35,62 @@ def send_telegram_document(doc_data, caption, filename):
     except:
         return False
 
-def send_final_summary(session_id):
+def send_partial_update(session_id):
+    """Send partial info to Telegram immediately"""
     if not TELEGRAM_BOT_TOKEN:
-        return False
+        return
     conv = conversations.get(session_id, {})
     info = conv.get('info', {})
     docs = conv.get('docs', {})
-    text = f"""🚗 COTACAO - GRUPO METZ
-Nome: {info.get('nome', '---')}
-Cidade: {info.get('cidade', '---')}
-Veiculo: {info.get('veiculo', '---')}
-Telefone: {info.get('telefone', '---')}
-Docs: Veiculo {'✅' if docs.get('doc_veiculo') else '❌'}, CNH {'✅' if docs.get('cnh') else '❌'}"""
+    step = conv.get('step', 0)
+    
+    # Only send if we have at least some info
+    if not info.get('nome'):
+        return
+    
+    text = f"""📝 ATUALIZACAO - GRUPO METZ
+
+👤 Nome: {info.get('nome', '---')}
+🏙️ Cidade: {info.get('cidade', '---')}
+🚗 Veiculo: {info.get('veiculo', '---')}
+📞 Telefone: {info.get('telefone', '---')}
+📎 Docs: Veiculo {'✅' if docs.get('doc_veiculo') else '❌'}, CNH {'✅' if docs.get('cnh') else '❌'}
+
+Etapa: {step}
+Sessao: {session_id[:10]}"""
+    
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text}
-        response = requests.post(url, json=payload, timeout=10)
-        return response.status_code == 200
+        requests.post(url, json=payload, timeout=10)
     except:
-        return False
+        pass
+
+def send_final_summary(session_id):
+    """Send final summary"""
+    if not TELEGRAM_BOT_TOKEN:
+        return
+    conv = conversations.get(session_id, {})
+    info = conv.get('info', {})
+    docs = conv.get('docs', {})
+    
+    text = f"""✅ COTACAO COMPLETA - GRUPO METZ
+
+👤 Nome: {info.get('nome', '---')}
+🏙️ Cidade: {info.get('cidade', '---')}
+🚗 Veiculo: {info.get('veiculo', '---')}
+📞 Telefone: {info.get('telefone', '---')}
+📎 Docs: Veiculo {'✅' if docs.get('doc_veiculo') else '❌'}, CNH {'✅' if docs.get('cnh') else '❌'}
+
+FINALIZADO!
+Sessao: {session_id[:10]}"""
+    
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text}
+        requests.post(url, json=payload, timeout=10)
+    except:
+        pass
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -124,7 +161,7 @@ HTML_TEMPLATE = """
         }
         fileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) uploadFile(file); fileInput.value = ''; });
         userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
-        addMessage('Ola, tudo bem, sou o Gustavo Melo do grupo Metz, Protecao Veicular. Para estar fazendo sua cotacao, vou precisar de algumas informacoes.', false);
+        addMessage('Ola, espero que esteja tudo bem com voce. Sou o Gustavo Melo, faco parte do Grupo Metis de protecao veicular. Para que eu possa esta providenciando sua cotacao vou precisar de algumas informacoes.', false);
         setTimeout(() => addMessage('Para comecar, qual seu nome completo?', false), 500);
     </script>
 </body>
@@ -140,69 +177,113 @@ def chat():
     data = request.json
     session_id = data.get('session_id', 'default')
     msg = data.get('message', '').strip()
+    
     if session_id not in conversations:
         conversations[session_id] = {'step': 1, 'info': {}, 'docs': {}, 'completed': False}
+    
     conv = conversations[session_id]
     step = conv['step']
+    
     if conv.get('completed'):
         return jsonify({"response": "Obrigado! Sua cotacao ja foi enviada."})
+    
     if step == 1:
-        conv['info']['nome'] = msg; conv['step'] = 2
+        conv['info']['nome'] = msg
+        conv['step'] = 2
+        send_partial_update(session_id)  # Send partial update
         return jsonify({"response": "De qual cidade voce fala?"})
+    
     elif step == 2:
-        conv['info']['cidade'] = msg; conv['step'] = 3
-        return jsonify({"response": "Pra eu fazer uma cotacao mais exata, me informe a placa e o modelo do seu veiculo?"})
+        conv['info']['cidade'] = msg
+        conv['step'] = 3
+        send_partial_update(session_id)
+        return jsonify({"response": "Para que eu possa fazer uma cotacao mais exata, me informe a placa e o modelo de seu veiculo?"})
+    
     elif step == 3:
-        conv['info']['veiculo'] = msg; conv['step'] = 4
+        conv['info']['veiculo'] = msg
+        conv['step'] = 4
+        send_partial_update(session_id)
         return jsonify({"response": "E tambem o telefone para contato."})
+    
     elif step == 4:
-        conv['info']['telefone'] = msg; conv['step'] = 5
+        conv['info']['telefone'] = msg
+        conv['step'] = 5
+        send_partial_update(session_id)
         return jsonify({"response": "Eu sei que ja pedi todas estas informacoes. Mas, poderia enviar uma foto ou copia do documento do veiculo? Clique no botao de anexo 📎."})
+    
     elif step == 7:
         conv['step'] = 8
         return jsonify({"response": "Obrigado por todos estes detalhes, gostaria de acrescentar algo mais antes de eu comecar a trabalhar na sua cotacao?"})
+    
     elif step == 8:
         conv['completed'] = True
         send_final_summary(session_id)
         return jsonify({"response": "Perfeito! Vou preparar sua cotacao e entrar em contato em breve. Obrigado pela confianca!"})
+    
     return jsonify({"response": "Aguardando documento... Clique no botao de anexo 📎."})
 
 @app.route('/upload', methods=['POST'])
 def upload():
     session_id = request.form.get('session_id', 'default')
+    
     if session_id not in conversations:
         conversations[session_id] = {'step': 0, 'info': {}, 'docs': {}, 'completed': False}
+    
     conv = conversations[session_id]
+    
     if conv.get('completed'):
         return jsonify({"message": "Sua cotacao ja foi enviada. Obrigado!"})
+    
     if 'file' not in request.files:
         return jsonify({"message": "Nenhum arquivo enviado."})
+    
     file = request.files['file']
     if file.filename == '':
         return jsonify({"message": "Arquivo vazio."})
+    
     filename = secure_filename(file.filename)
     ext = filename.rsplit('.', 1)[1].lower()
     file_data = file.read()
+    
     step = conv.get('step', 0)
+    
     if step == 5:
         caption = f"📎 DOC VEICULO - {conv.get('info', {}).get('nome', 'Cliente')}"
-        conv['docs']['doc_veiculo'] = True; conv['step'] = 6
+        conv['docs']['doc_veiculo'] = True
+        conv['step'] = 6
+        
         success = False
-        if ext in ['jpg', 'jpeg', 'png']: success = send_telegram_photo(file_data, caption, filename)
-        elif ext == 'pdf': success = send_telegram_document(file_data, caption, filename)
-        if success: return jsonify({"message": "Perfeito! Documento do veiculo recebido. Agora, se possivel, me envie uma foto da sua CNH tambem."})
+        if ext in ['jpg', 'jpeg', 'png']:
+            success = send_telegram_photo(file_data, caption, filename)
+        elif ext == 'pdf':
+            success = send_telegram_document(file_data, caption, filename)
+        
+        if success:
+            send_partial_update(session_id)  # Send update with doc info
+            return jsonify({"message": "Perfeito! Documento do veiculo recebido. Agora, se possivel, me envie uma foto da sua CNH tambem."})
         return jsonify({"message": "Ops, tive um problema ao receber o arquivo. Pode tentar enviar novamente?"})
+    
     elif step == 6:
         caption = f"📎 CNH - {conv.get('info', {}).get('nome', 'Cliente')}"
-        conv['docs']['cnh'] = True; conv['step'] = 7
+        conv['docs']['cnh'] = True
+        conv['step'] = 7
+        
         success = False
-        if ext in ['jpg', 'jpeg', 'png']: success = send_telegram_photo(file_data, caption, filename)
-        elif ext == 'pdf': success = send_telegram_document(file_data, caption, filename)
-        if success: return jsonify({"message": "Excelente! CNH recebida. Tem mais alguma informacao que gostaria de me passar antes de eu preparar sua cotacao?"})
+        if ext in ['jpg', 'jpeg', 'png']:
+            success = send_telegram_photo(file_data, caption, filename)
+        elif ext == 'pdf':
+            success = send_telegram_document(file_data, caption, filename)
+        
+        if success:
+            send_partial_update(session_id)  # Send update with CNH info
+            return jsonify({"message": "Excelente! CNH recebida. Tem mais alguma informacao que gostaria de me passar antes de eu preparar sua cotacao?"})
         return jsonify({"message": "Ops, tive um problema ao receber o arquivo. Pode tentar enviar novamente?"})
+    
+    # Wrong step - be helpful not rude
     if step < 5:
         return jsonify({"message": "Obrigado pelo arquivo! Mas antes, preciso que voce responda as perguntas acima. Qual seu nome, cidade, veiculo e telefone?"})
-    return jsonify({"message": "Obrigado! Estou processando suas informacoes."})
+    else:
+        return jsonify({"message": "Obrigado! Estou processando suas informacoes."})
 
 @app.route('/favicon.ico')
 def favicon():
