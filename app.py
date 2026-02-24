@@ -1,21 +1,31 @@
-# Car Insurance Lead Bot - With Admin Panel
+# Car Insurance Lead Bot - With Admin Panel & Multiple Telegram Destinations
 from flask import Flask, render_template_string, request, jsonify, redirect, session
 import requests
 import os
 import json
+import uuid
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
 # Configuration
-TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
-TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '@Toustten')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
 # In-memory storage (use database in production)
 conversations = {}
+
+# Default configuration
 bot_config = {
+    "telegram_destinations": [
+        {
+            "id": "default",
+            "name": "Telegram Principal",
+            "token": os.environ.get('TELEGRAM_BOT_TOKEN', ''),
+            "chat_id": os.environ.get('TELEGRAM_CHAT_ID', '@Toustten'),
+            "enabled": True
+        }
+    ],
     "greeting": "Ola, espero que esteja tudo bem com voce. Sou o Gustavo Melo, faco parte do Grupo Metis de protecao veicular. Para que eu possa esta providenciando sua cotacao vou precisar de algumas informacoes.",
     "steps": [
         {"id": "nome", "question": "Para comecar, qual seu nome completo?", "enabled": True, "order": 1},
@@ -50,35 +60,71 @@ def get_enabled_documents():
     """Get enabled documents"""
     return [d for d in bot_config["documents"] if d["enabled"]]
 
-def send_telegram_photo(photo_data, caption, filename):
-    if not TELEGRAM_BOT_TOKEN:
-        return False
+def get_enabled_telegram_destinations():
+    """Get enabled Telegram destinations"""
+    return [t for t in bot_config["telegram_destinations"] if t["enabled"] and t["token"] and t["chat_id"]]
+
+def send_telegram_photo_to_dest(photo_data, caption, filename, dest):
+    """Send photo to a specific destination"""
     try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+        url = f"https://api.telegram.org/bot{dest['token']}/sendPhoto"
         files = {'photo': (filename, photo_data, 'image/jpeg')}
-        data = {'chat_id': TELEGRAM_CHAT_ID, 'caption': caption}
+        data = {'chat_id': dest['chat_id'], 'caption': caption}
         response = requests.post(url, files=files, data=data, timeout=30)
         return response.status_code == 200
     except:
         return False
 
-def send_telegram_document(doc_data, caption, filename):
-    if not TELEGRAM_BOT_TOKEN:
-        return False
+def send_telegram_doc_to_dest(doc_data, caption, filename, dest):
+    """Send document to a specific destination"""
     try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendDocument"
+        url = f"https://api.telegram.org/bot{dest['token']}/sendDocument"
         files = {'document': (filename, doc_data, 'application/pdf')}
-        data = {'chat_id': TELEGRAM_CHAT_ID, 'caption': caption}
+        data = {'chat_id': dest['chat_id'], 'caption': caption}
         response = requests.post(url, files=files, data=data, timeout=30)
         return response.status_code == 200
     except:
         return False
+
+def send_message_to_dest(text, dest):
+    """Send text message to a specific destination"""
+    try:
+        url = f"https://api.telegram.org/bot{dest['token']}/sendMessage"
+        payload = {"chat_id": dest['chat_id'], "text": text}
+        response = requests.post(url, json=payload, timeout=10)
+        return response.status_code == 200
+    except:
+        return False
+
+def send_photo_to_all(photo_data, caption, filename):
+    """Send photo to all enabled destinations"""
+    destinations = get_enabled_telegram_destinations()
+    results = []
+    for dest in destinations:
+        success = send_telegram_photo_to_dest(photo_data, caption, filename, dest)
+        results.append((dest['name'], success))
+    return results
+
+def send_doc_to_all(doc_data, caption, filename):
+    """Send document to all enabled destinations"""
+    destinations = get_enabled_telegram_destinations()
+    results = []
+    for dest in destinations:
+        success = send_telegram_doc_to_dest(doc_data, caption, filename, dest)
+        results.append((dest['name'], success))
+    return results
+
+def send_text_to_all(text):
+    """Send text to all enabled destinations"""
+    destinations = get_enabled_telegram_destinations()
+    results = []
+    for dest in destinations:
+        success = send_message_to_dest(text, dest)
+        results.append((dest['name'], success))
+    return results
 
 def send_update_to_telegram(session_id, conv):
-    """Send update to Telegram"""
-    if not TELEGRAM_BOT_TOKEN:
-        return
-    
+    """Send update to all Telegram destinations"""
     info = conv.get('info', {})
     docs = conv.get('docs', {})
     
@@ -98,12 +144,7 @@ def send_update_to_telegram(session_id, conv):
 
 Sessao: {session_id[:10]}"""
     
-    try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text}
-        requests.post(url, json=payload, timeout=10)
-    except:
-        pass
+    return send_text_to_all(text)
 
 def generate_bot_html():
     """Generate bot HTML with current config"""
@@ -200,7 +241,6 @@ def generate_bot_html():
         fileInput.addEventListener('change', (e) => {{ const file = e.target.files[0]; if (file) uploadFile(file); fileInput.value = ''; }});
         userInput.addEventListener('keypress', (e) => {{ if (e.key === 'Enter') sendMessage(); }});
         
-        // Start conversation
         addMessage("{greeting}", false);
         setTimeout(() => addMessage("{first_question}", false), 500);
     </script>
@@ -305,14 +345,18 @@ def upload():
     doc_name = next((d['name'] for d in enabled_docs if d['id'] == doc_type), 'Documento')
     caption = f"📎 {doc_name} - {conv.get('info', {}).get('nome', 'Cliente')}"
     
-    # Send to Telegram
-    success = False
+    # Send to all Telegram destinations
     if ext in ['jpg', 'jpeg', 'png']:
-        success = send_telegram_photo(file_data, caption, filename)
+        results = send_photo_to_all(file_data, caption, filename)
     elif ext == 'pdf':
-        success = send_telegram_document(file_data, caption, filename)
+        results = send_doc_to_all(file_data, caption, filename)
+    else:
+        return jsonify({"message": "Tipo de arquivo nao suportado."})
     
-    if success:
+    # Check if any succeeded
+    any_success = any(r[1] for r in results)
+    
+    if any_success:
         conv['docs'][doc_type] = True
         send_update_to_telegram(session_id, conv)
         
@@ -328,7 +372,7 @@ def upload():
         
         return jsonify({"message": bot_config["messages"]["doc_received"]})
     
-    return jsonify({"message": "Erro ao enviar arquivo. Tente novamente."})
+    return jsonify({"message": "Erro ao enviar arquivo. Verifique as configuracoes do Telegram."})
 
 # ============== ADMIN ROUTES ==============
 
@@ -376,6 +420,32 @@ def admin_login_post():
 def admin_dashboard():
     if not session.get('admin'):
         return redirect('/admin')
+    
+    # Generate Telegram destinations HTML
+    telegram_html = ""
+    for dest in bot_config["telegram_destinations"]:
+        checked = "checked" if dest["enabled"] else ""
+        token_masked = dest["token"][:20] + "..." if len(dest["token"]) > 20 else dest["token"]
+        telegram_html += f"""
+        <div class="telegram-item" style="border: 2px solid #e0e0e0; border-radius: 12px; padding: 20px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <strong>{dest['name']}</strong>
+                <label class="toggle-switch">
+                    <input type="checkbox" name="tg_enable_{dest['id']}" {checked}>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label style="display: block; color: #666; font-size: 0.9rem; margin-bottom: 5px;">Bot Token:</label>
+                <input type="text" name="tg_token_{dest['id']}" value="{dest['token']}" placeholder="123456789:ABCdef..." style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-family: monospace;">
+                <small style="color: #999;">Atual: {token_masked}</small>
+            </div>
+            <div>
+                <label style="display: block; color: #666; font-size: 0.9rem; margin-bottom: 5px;">Chat ID:</label>
+                <input type="text" name="tg_chat_{dest['id']}" value="{dest['chat_id']}" placeholder="@seu_canal ou 123456789" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px;">
+            </div>
+        </div>
+        """
     
     steps_html = ""
     for step in sorted(bot_config["steps"], key=lambda x: x["order"]):
@@ -434,6 +504,10 @@ def admin_dashboard():
             input:checked + .slider:before {{ transform: translateX(30px); }}
             .save-btn {{ background: linear-gradient(135deg, #1e88e5 0%, #0d47a1 100%); color: white; border: none; padding: 15px 40px; border-radius: 10px; font-size: 1.1rem; cursor: pointer; margin-top: 20px; }}
             .save-btn:hover {{ opacity: 0.9; }}
+            .add-btn {{ background: #4caf50; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-bottom: 15px; }}
+            .add-btn:hover {{ opacity: 0.9; }}
+            .delete-btn {{ background: #f44336; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }}
+            .delete-btn:hover {{ opacity: 0.9; }}
             .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }}
             @media (max-width: 768px) {{ .grid {{ grid-template-columns: 1fr; }} }}
         </style>
@@ -445,6 +519,23 @@ def admin_dashboard():
         </div>
         <div class="container">
             <form method="POST" action="/admin/save">
+                
+                <div class="section">
+                    <h2>📱 Destinos Telegram</h2>
+                    <p style="color: #666; margin-bottom: 15px;">Configure onde as mensagens serão enviadas. Adicione quantos destinos quiser.</p>
+                    
+                    {telegram_html}
+                    
+                    <div style="margin-top: 20px; padding: 20px; background: #e3f2fd; border-radius: 10px;">
+                        <h3>➕ Adicionar Novo Destino</h3>
+                        <div style="margin-bottom: 10px;">
+                            <input type="text" name="new_tg_name" placeholder="Nome (ex: Telegram do Joao)" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; margin-bottom: 10px;">
+                            <input type="text" name="new_tg_token" placeholder="Bot Token" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; margin-bottom: 10px; font-family: monospace;">
+                            <input type="text" name="new_tg_chat" placeholder="Chat ID (@canal ou numero)" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px;">
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="section">
                     <h2>👋 Mensagem de Boas-vindas</h2>
                     <textarea name="greeting">{bot_config['greeting']}</textarea>
@@ -469,14 +560,17 @@ def admin_dashboard():
                         <label style="display: block; margin-bottom: 5px; color: #666;">Mensagem ao pedir documentos:</label>
                         <textarea name="msg_doc_request">{bot_config['messages']['doc_request']}</textarea>
                     </div>
+                    
                     <div style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 5px; color: #666;">Mensagem documento recebido:</label>
                         <textarea name="msg_doc_received">{bot_config['messages']['doc_received']}</textarea>
                     </div>
+                    
                     <div style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 5px; color: #666;">Pergunta final:</label>
                         <textarea name="msg_final">{bot_config['messages']['final_question']}</textarea>
                     </div>
+                    
                     <div>
                         <label style="display: block; margin-bottom: 5px; color: #666;">Mensagem de despedida:</label>
                         <textarea name="msg_goodbye">{bot_config['messages']['goodbye']}</textarea>
@@ -504,6 +598,31 @@ def admin_dashboard():
 def admin_save():
     if not session.get('admin'):
         return redirect('/admin')
+    
+    # Update Telegram destinations
+    for dest in bot_config["telegram_destinations"]:
+        dest['enabled'] = f"tg_enable_{dest['id']}" in request.form
+        new_token = request.form.get(f"tg_token_{dest['id']}", '').strip()
+        new_chat = request.form.get(f"tg_chat_{dest['id']}", '').strip()
+        if new_token:
+            dest['token'] = new_token
+        if new_chat:
+            dest['chat_id'] = new_chat
+    
+    # Add new Telegram destination
+    new_name = request.form.get('new_tg_name', '').strip()
+    new_token = request.form.get('new_tg_token', '').strip()
+    new_chat = request.form.get('new_tg_chat', '').strip()
+    
+    if new_name and new_token and new_chat:
+        new_id = str(uuid.uuid4())[:8]
+        bot_config["telegram_destinations"].append({
+            "id": new_id,
+            "name": new_name,
+            "token": new_token,
+            "chat_id": new_chat,
+            "enabled": True
+        })
     
     # Update greeting
     bot_config['greeting'] = request.form.get('greeting', bot_config['greeting'])
