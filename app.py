@@ -48,6 +48,9 @@ bot_config = {
         "logo_url": "https://metisbrasil.com.br/wp-content/uploads/2025/06/metis-logo.png",
         "primary_color": "#1e88e5",
         "secondary_color": "#0d47a1"
+    },
+    "settings": {
+        "send_partial_updates": True
     }
 }
 
@@ -125,6 +128,10 @@ def send_text_to_all(text):
 
 def send_update_to_telegram(session_id, conv):
     """Send update to all Telegram destinations"""
+    # Check if partial updates are enabled
+    if not bot_config.get("settings", {}).get("send_partial_updates", True):
+        return
+    
     info = conv.get('info', {})
     docs = conv.get('docs', {})
     
@@ -537,6 +544,22 @@ def admin_dashboard():
                 </div>
                 
                 <div class="section">
+                    <h2>⚙️ Configurações</h2>
+                    <div style="padding: 15px; background: #e3f2fd; border-radius: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>Enviar atualizações parciais</strong>
+                                <p style="color: #666; font-size: 0.9rem; margin-top: 5px;">Envia mensagem ao Telegram a cada resposta do cliente</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="send_partial_updates" {'checked' if bot_config.get('settings', {}).get('send_partial_updates', True) else ''}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section">
                     <h2>👋 Mensagem de Boas-vindas</h2>
                     <textarea name="greeting">{bot_config['greeting']}</textarea>
                 </div>
@@ -643,6 +666,9 @@ def admin_save():
     bot_config['messages']['doc_received'] = request.form.get('msg_doc_received', bot_config['messages']['doc_received'])
     bot_config['messages']['final_question'] = request.form.get('msg_final', bot_config['messages']['final_question'])
     bot_config['messages']['goodbye'] = request.form.get('msg_goodbye', bot_config['messages']['goodbye'])
+    
+    # Update settings
+    bot_config['settings']['send_partial_updates'] = 'send_partial_updates' in request.form
     
     # Update appearance
     bot_config['appearance']['logo_url'] = request.form.get('logo_url', bot_config['appearance']['logo_url'])
