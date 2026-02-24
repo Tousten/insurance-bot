@@ -282,4 +282,4 @@ def favicon():
     return '', 204
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))root@iZt4nanhbsr12idedgxr2fZ:~#
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
