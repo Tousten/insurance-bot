@@ -100,17 +100,17 @@ HTML_TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Grupo Metz</title>
     <style>
-        body { font-family: sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; margin: 0; }
+        body { font-family: sans-serif; background: linear-gradient(135deg, #1e88e5 0%, #0d47a1 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; margin: 0; }
         .chat-container { width: 100%; max-width: 420px; height: 85vh; background: white; border-radius: 24px; box-shadow: 0 25px 80px rgba(0,0,0,0.4); display: flex; flex-direction: column; overflow: hidden; }
-        .chat-header { background: #f8f9fa url('https://metisbrasil.com.br/wp-content/uploads/2025/06/metis-logo.png') center/70% no-repeat; min-height: 150px; border-bottom: 3px solid #667eea; }
+        .chat-header { background: #f8f9fa url('https://metisbrasil.com.br/wp-content/uploads/2025/06/metis-logo.png') center/70% no-repeat; min-height: 150px; border-bottom: 3px solid #1e88e5; }
         .chat-messages { flex: 1; overflow-y: auto; padding: 20px; }
         .message { max-width: 85%; padding: 14px 18px; border-radius: 20px; margin-bottom: 10px; font-size: 0.95rem; line-height: 1.4; }
         .message.bot { background: #f0f2f5; color: #1a1a1a; margin-right: auto; }
-        .message.user { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; margin-left: auto; }
+        .message.user { background: linear-gradient(135deg, #1e88e5 0%, #0d47a1 100%); color: white; margin-left: auto; }
         .chat-input { padding: 18px; border-top: 1px solid #e8e8e8; display: flex; gap: 12px; background: #fafafa; }
         .chat-input input[type="text"] { flex: 1; padding: 14px 20px; border: 2px solid #e0e0e0; border-radius: 28px; font-size: 0.95rem; }
-        .chat-input button { width: 50px; height: 50px; border: none; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-size: 1.2rem; cursor: pointer; }
-        .file-btn { width: 50px; height: 50px; border: 2px solid #667eea; border-radius: 50%; background: white; color: #667eea; font-size: 1.4rem; cursor: pointer; }
+        .chat-input button { width: 50px; height: 50px; border: none; border-radius: 50%; background: linear-gradient(135deg, #1e88e5 0%, #0d47a1 100%); color: white; font-size: 1.2rem; cursor: pointer; }
+        .file-btn { width: 50px; height: 50px; border: 2px solid #1e88e5; border-radius: 50%; background: white; color: #1e88e5; font-size: 1.4rem; cursor: pointer; }
         .file-input { display: none; }
     </style>
 </head>
